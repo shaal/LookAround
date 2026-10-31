@@ -10,7 +10,14 @@ import {
 } from "./card-calibration.ts";
 import { positionSignal, type Sample } from "./tracking-math.ts";
 
-function card(yaw: number, pitch = 0, depth = 30, focal = 900): CardDetection {
+function card(
+  yaw: number,
+  pitch = 0,
+  depth = 30,
+  focal = 900,
+  offsetX = 0,
+  offsetY = 0,
+): CardDetection {
   const rotation = new Quaternion().setFromEuler(new Euler(pitch, yaw, 0));
   return {
     width: 1280,
@@ -23,7 +30,7 @@ function card(yaw: number, pitch = 0, depth = 30, focal = 900): CardDetection {
     ].map(([x, y]) => {
       const p = new Vector3(x, y, 0)
         .applyQuaternion(rotation)
-        .add(new Vector3(-12, -2, depth));
+        .add(new Vector3(-12 + offsetX, -2 + offsetY, depth));
       return { x: 640 + (focal * p.x) / p.z, y: 360 + (focal * p.y) / p.z };
     }),
   };
@@ -94,7 +101,7 @@ test("guided holds use opposite and vertical tilts then paired frontal face dept
   const session = new CardCalibration();
   let timestamp = 1000;
   for (const view of [...views(), card(0, 0, 52)]) {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 16; i++) {
       session.observe(
         { ...view, timestamp, sample: face(timestamp) },
         timestamp + 20,
@@ -118,7 +125,7 @@ test("guided holds use opposite and vertical tilts then paired frontal face dept
   assert.ok(Math.abs(signal.z! + 8) < 1e-6);
 });
 
-test("duplicates, stale frames, gaps, movement and missing face reset rather than complete a hold", () => {
+test("duplicates, stale frames and long capture gaps cannot complete a hold", () => {
   const session = new CardCalibration(),
     view = card(0.55);
   const observe = (timestamp: number, now = timestamp) =>
@@ -128,32 +135,34 @@ test("duplicates, stale frames, gaps, movement and missing face reset rather tha
   assert.equal(session.progress, 0);
   observe(1100);
   observe(1200);
+  observe(1300);
+  observe(1400);
   assert.ok(session.progress > 0);
-  observe(2100);
+  observe(2300);
   assert.equal(session.progress, 0);
-  observe(2200, 3301);
+  observe(2400, 3501);
   assert.equal(session.progress, 0);
-  observe(3400);
-  observe(3500);
-  session.observe(null, 3600);
+  observe(3600);
+  observe(3700);
+  session.observe(null, 3800);
   assert.equal(session.progress, 0);
   session.observe(
     {
       ...view,
       corners: view.corners.map((p) => ({ x: p.x + 25, y: p.y })),
-      timestamp: 3700,
-      sample: face(3700),
+      timestamp: 3900,
+      sample: face(3900),
     },
-    3700,
+    3900,
   );
   assert.equal(session.views.length, 0);
   session.observe(
     {
       ...view,
-      timestamp: 3800,
-      sample: { ...face(3800), position: new Vector3(0, 0, NaN) },
+      timestamp: 4000,
+      sample: { ...face(4000), position: new Vector3(0, 0, NaN) },
     },
-    3800,
+    4000,
   );
   assert.equal(session.progress, 0);
 });
@@ -161,7 +170,7 @@ test("duplicates, stale frames, gaps, movement and missing face reset rather tha
 test("slow paired camera frames complete a hold while live movement still rejects stale samples", () => {
   const session = new CardCalibration(),
     view = card(0.55);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     const timestamp = 1000 + i * 500;
     session.observe(
       { ...view, timestamp, sample: face(timestamp) },
@@ -170,6 +179,115 @@ test("slow paired camera frames complete a hold while live movement still reject
   }
   assert.equal(session.stage, 1);
   assert.equal(positionSignal(face(1000), face(1000), 1400, 52), null);
+});
+
+function startHold() {
+  const session = new CardCalibration();
+  for (let i = 0; i < 5; i++) {
+    const timestamp = 1000 + i * 100;
+    session.observe(
+      { ...card(0.55), timestamp, sample: face(timestamp) },
+      timestamp,
+    );
+  }
+  assert.ok(session.progress > 0);
+  return session;
+}
+
+test("a short outline dropout freezes progress and resumes without counting the missing frame", () => {
+  const session = startHold(),
+    before = session.progress;
+  session.observe(null, 1500);
+  assert.equal(session.progress, before);
+  assert.equal(session.paused, true);
+  assert.ok(session.trackedView);
+  session.observe({ ...card(0.55), timestamp: 1600, sample: face(1600) }, 1600);
+  assert.equal(session.paused, false);
+  assert.ok(Math.abs(session.progress - before - 0.125) < 1e-8);
+});
+
+test("sustained detection loss clears the hold instead of completing it in the background", () => {
+  const session = startHold(),
+    before = session.progress;
+  session.observe(null, 1500);
+  session.observe(null, 1900);
+  assert.equal(session.progress, before);
+  session.observe(null, 2000);
+  assert.equal(session.progress, 0);
+  assert.equal(session.paused, false);
+  assert.equal(session.trackedView, null);
+  assert.equal(session.stage, 0);
+});
+
+test("an unstable corner pauses without counting or replacing the held measurement", () => {
+  const session = startHold(),
+    before = session.progress;
+  const unstable = card(0.55);
+  unstable.corners[1].y += 12;
+  session.observe({ ...unstable, timestamp: 1500, sample: face(1500) }, 1500);
+  assert.equal(session.paused, true);
+  assert.equal(session.progress, before);
+  session.observe({ ...card(0.55), timestamp: 1600, sample: face(1600) }, 1600);
+  assert.equal(session.paused, false);
+  assert.ok(session.progress > before);
+  assert.equal(session.stage, 0);
+});
+
+test("large real movement resets the hold immediately", () => {
+  const session = startHold();
+  session.observe(
+    { ...card(0.55, 0, 30, 900, 2), timestamp: 1500, sample: face(1500) },
+    1500,
+  );
+  assert.equal(session.progress, 0);
+  assert.equal(session.paused, false);
+  assert.match(session.instruction, /card moved/);
+});
+
+test("a locked tilt tolerates small changes around its entry threshold", () => {
+  const session = new CardCalibration();
+  for (let i = 0; i < 16 && session.stage === 0; i++) {
+    const timestamp = 1000 + i * 100;
+    session.observe(
+      { ...card(i < 5 ? 0.31 : 0.28), timestamp, sample: face(timestamp) },
+      timestamp,
+    );
+  }
+  assert.equal(session.stage, 1);
+});
+
+test("natural hand jitter and blinking retain accurate paired card measurements", () => {
+  const session = new CardCalibration();
+  let timestamp = 1000;
+  for (const [yaw, pitch, depth] of [
+    [0.55, 0, 30],
+    [-0.55, 0, 30],
+    [0, 0.55, 30],
+    [0, 0, 52],
+  ]) {
+    for (let i = 0; i < 24; i++) {
+      const view = card(
+        yaw,
+        pitch,
+        depth,
+        900,
+        Math.sin(i * 1.7) * 0.22,
+        Math.cos(i * 1.3) * 0.12,
+      );
+      session.observe(
+        {
+          ...view,
+          timestamp,
+          sample: { ...face(timestamp), eyesValid: i % 4 !== 0 },
+        },
+        timestamp,
+      );
+      timestamp += 100;
+    }
+  }
+  assert.ok(session.result, session.error || session.instruction);
+  assert.ok(Math.abs(session.result.distanceCm - 52) < 0.1);
+  assert.ok(Math.abs(session.result.cmPerPoseUnit - 0.8) < 0.005);
 });
 
 test("a visible small card requests a closer capture instead of accepting an unreliable lens", () => {

@@ -81,6 +81,7 @@ export class CardScan {
     this.ready = false;
     this.dialog.dataset.stage = "0";
     this.dialog.dataset.holding = "false";
+    this.dialog.dataset.paused = "false";
     this.dialog.dataset.error = "false";
     this.dialog.dataset.complete = "false";
     this.readiness.textContent = "Face: waiting · Card: waiting";
@@ -139,6 +140,7 @@ export class CardScan {
     this.tracker.stopCardScan();
     this.dialog.dataset.error = "true";
     this.dialog.dataset.holding = "false";
+    this.dialog.dataset.paused = "false";
     this.meter.style.setProperty("--hold", "0%");
     this.meter.setAttribute("aria-valuenow", "0");
     this.canvas
@@ -185,6 +187,7 @@ export class CardScan {
     );
     this.dialog.dataset.stage = String(this.calibration.stage);
     this.dialog.dataset.holding = String(this.calibration.progress > 0);
+    this.dialog.dataset.paused = String(this.calibration.paused);
     this.steps.forEach((step, i) => {
       step.classList.toggle("complete", i < this.calibration.stage);
       step.classList.toggle("current", i === this.calibration.stage);
@@ -197,19 +200,29 @@ export class CardScan {
       "aria-valuenow",
       String(Math.round(this.calibration.progress * 100)),
     );
-    const width = detectedCard?.width ?? this.video.videoWidth;
-    const height = detectedCard?.height ?? this.video.videoHeight;
+    const visualCard =
+      detectedCard ??
+      (this.calibration.paused ? this.calibration.trackedView : null);
+    const width = visualCard?.width ?? this.video.videoWidth;
+    const height = visualCard?.height ?? this.video.videoHeight;
     if (width && height) {
       this.canvas.width = width;
       this.canvas.height = height;
       this.canvas.parentElement!.style.aspectRatio = `${width}/${height}`;
       const context = this.canvas.getContext("2d")!;
-      if (detectedCard) {
-        context.strokeStyle =
-          this.calibration.progress > 0 ? "#8fd2ae" : "#eea6a0";
+      if (visualCard) {
+        context.strokeStyle = this.calibration.paused
+          ? "#efc38f"
+          : this.calibration.progress > 0
+            ? "#8fd2ae"
+            : "#eea6a0";
         context.lineWidth = width / 200;
         context.beginPath();
-        detectedCard.corners.forEach((p, i) =>
+        const outline =
+          this.calibration.progress > 0
+            ? (this.calibration.trackedView?.corners ?? visualCard.corners)
+            : visualCard.corners;
+        outline.forEach((p, i) =>
           i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y),
         );
         context.closePath();
@@ -271,9 +284,11 @@ export class CardScan {
           ? "Camera processing is delayed. Hold still; try brighter light if this continues."
           : faceTurned
             ? "Face the camera straight on for this final hold."
-            : !detectedCard
-              ? hints[cardIssue ?? "not-found"]
-              : this.calibration.instruction,
+            : this.calibration.paused
+              ? this.calibration.instruction
+              : !detectedCard
+                ? hints[cardIssue ?? "not-found"]
+                : this.calibration.instruction,
     );
     if (this.calibration.result) {
       this.ready = false;

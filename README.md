@@ -76,6 +76,11 @@ distance is 61 cm, roughly two feet. These are estimates, not detected hardware.
   reports face/card detection separately and explains placement, size, clipping,
   reflections and ambiguous rectangles. A red outline means the card was found;
   follow the tilt/size instruction until it turns green and the hold advances.
+  Small hand tremor is filtered across a few frames. Brief outline misses pause
+  the progress bar for up to 450 ms, with an amber outline, instead of restarting
+  immediately. Larger movement or sustained loss starts a fresh hold. Blinking
+  does not interrupt a card scan: iris tracking is only needed for the separate
+  neutral/gaze capture afterward.
 - **Fine-tune measurements** remains available. Measurements are saved locally.
   Card scale compensates for browser zoom changes; moving to a differently sized
   monitor requires another card match.
@@ -93,6 +98,9 @@ session-local; only an accepted screen-distance setting is saved. Cancel keeps
 the previous calibration and requires no new camera permission.
 The capture-only scan tolerates up to one second of processing delay and 750 ms
 between paired frames, while requiring six distinct stable frames per hold.
+Only accepted frames contribute to hold progress. Temporal filtering steadies
+classification and the outline; lens fitting and final face-scale pairing still
+use the original card/face measurements from each same captured frame.
 Live head/eye steering retains its separate 250 ms freshness limit.
 
 For a stationary-object test, choose **Position only** and a model without
@@ -224,6 +232,10 @@ card and portrait through the actual MediaPipe/OpenCV worker, reaching an
 approximate result of 51 cm for the fixture's 52 cm card depth. A missing-card
 check verified the face/card labels and visible placement guides. This is software
 validation, not a live-card accuracy measurement.
+Additional hold regressions cover hand tremor, blinks, short pauses without
+counting missing frames, sustained loss, unstable corners, real motion resets,
+and small tilt changes around the acquisition threshold. Joint lens and
+reprojection quality checks remain in force.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 

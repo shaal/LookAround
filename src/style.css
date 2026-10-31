@@ -1966,6 +1966,9 @@ dialog > .text-link {
 .card-scan-dialog[data-holding="true"] .card-scan-status {
   color: #8fd2ae;
 }
+.card-scan-dialog[data-paused="true"] .card-scan-status {
+  color: #efc38f;
+}
 .card-scan-result {
   margin: 18px 0;
 }

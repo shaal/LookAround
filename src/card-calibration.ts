@@ -15,6 +15,7 @@ export type CardIssue =
   | null;
 export const CARD_MAX_FRAME_AGE_MS = 1000;
 const CARD_MAX_FRAME_GAP_MS = 750;
+const CARD_HOLD_GRACE_MS = 450;
 export interface CardDetection {
   corners: CardPoint[];
   width: number;
@@ -179,7 +180,14 @@ export class CardCalibration {
     "Hold a standard bank-sized card beside your face, with one edge turned toward the camera.";
   error = "";
   result: CardMeasurement | null = null;
+  paused = false;
   private first: CardObservation | null = null;
+  private anchor: CardPoint[] | null = null;
+  private recent: CardObservation[] = [];
+  private filtered: CardDetection | null = null;
+  private heldMs = 0;
+  private pausedAt: number | null = null;
+  private lastObservationAt: number | null = null;
   private frames: CardObservation[] = [];
   private lastTimestamp = -1;
   private firstSign = 0;
@@ -188,30 +196,65 @@ export class CardCalibration {
 
   private clearHold(instruction: string) {
     this.first = null;
+    this.anchor = null;
+    this.recent = [];
+    this.filtered = null;
+    this.heldMs = 0;
+    this.paused = false;
+    this.pausedAt = null;
     this.frames = [];
     this.progress = 0;
     this.instruction = instruction;
   }
 
+  get trackedView(): CardDetection | null {
+    return this.filtered;
+  }
+
+  private pauseHold(instruction: string, now: number) {
+    if (!this.first) {
+      this.clearHold(instruction);
+      return;
+    }
+    this.pausedAt ??= now;
+    if (now - this.pausedAt > CARD_HOLD_GRACE_MS) {
+      this.clearHold(instruction);
+      return;
+    }
+    this.paused = true;
+    this.instruction = "Keep holding—checking the outline…";
+  }
+
   observe(view: CardObservation | null, now: number) {
     if (this.result || this.error) return;
     if (
-      !view ||
       !Number.isFinite(now) ||
-      !Number.isFinite(view.timestamp) ||
-      now - view.timestamp > CARD_MAX_FRAME_AGE_MS ||
-      now < view.timestamp
+      (view &&
+        (!Number.isFinite(view.timestamp) ||
+          now - view.timestamp > CARD_MAX_FRAME_AGE_MS ||
+          now < view.timestamp))
     ) {
       this.clearHold("Waiting for a clear card view.");
       return;
     }
-    if (view.timestamp <= this.lastTimestamp) return;
+    if (view && view.timestamp <= this.lastTimestamp) return;
+    const elapsed =
+      this.lastObservationAt === null
+        ? 0
+        : Math.max(0, now - this.lastObservationAt);
+    this.lastObservationAt = now;
+    if (!view) {
+      this.pauseHold("Waiting for a clear card view.", now);
+      return;
+    }
     if (
       this.lastTimestamp >= 0 &&
       view.timestamp - this.lastTimestamp > CARD_MAX_FRAME_GAP_MS
     )
       this.clearHold("Hold still.");
     this.lastTimestamp = view.timestamp;
+    if (this.pausedAt !== null && now - this.pausedAt > CARD_HOLD_GRACE_MS)
+      this.clearHold("Hold this position still.");
     const dimensions = `${view.width}x${view.height}`;
     if (this.dimensions && dimensions !== this.dimensions) {
       this.error = "Camera size changed. Start the scan again.";
@@ -226,24 +269,75 @@ export class CardCalibration {
     );
     if (
       shortEdge <
-      Math.max(1, view.width / 640) * (this.stage < 3 ? 45 : 18)
+      Math.max(1, view.width / 640) *
+        (this.stage < 3 ? 45 : 18) *
+        (this.first ? 0.92 : 1)
     ) {
-      this.clearHold(
+      this.pauseHold(
         "Card found. Bring it closer to the camera for these tilts.",
+        now,
       );
       return;
     }
-    const h = cardHomography(view);
+    const tolerance = Math.max((view.width / 640) * 5, shortEdge * 0.035);
+    const displacement = (corners: CardPoint[]) =>
+      this.anchor
+        ? Math.max(
+            ...corners.map((p, i) =>
+              Math.hypot(p.x - this.anchor![i].x, p.y - this.anchor![i].y),
+            ),
+          )
+        : 0;
+    if (displacement(view.corners) > tolerance * 2) {
+      this.clearHold("The card moved. Hold this position still.");
+      this.recent.push(view);
+      return;
+    }
+    this.recent.push(view);
+    this.recent = this.recent.slice(-5);
+    this.filtered = {
+      ...view,
+      corners: view.corners.map((_, i) => ({
+        x: median(this.recent.map((f) => f.corners[i].x)),
+        y: median(this.recent.map((f) => f.corners[i].y)),
+      })),
+    };
+    if (this.recent.length < 3) {
+      this.instruction = "Keep the card steady while its outline settles…";
+      return;
+    }
+    if (displacement(this.filtered.corners) > tolerance) {
+      this.clearHold("The card moved. Hold this position still.");
+      this.recent.push(view);
+      return;
+    }
+    if (
+      this.first &&
+      Math.max(
+        ...view.corners.map((p, i) =>
+          Math.hypot(
+            p.x - this.filtered!.corners[i].x,
+            p.y - this.filtered!.corners[i].y,
+          ),
+        ),
+      ) > tolerance
+    ) {
+      this.pauseHold("Keep the card steady.", now);
+      return;
+    }
+    const h = cardHomography(this.filtered);
     const focal = this.lens?.focal ?? (h ? fit([h]) : null);
     if (!h || !focal) {
-      this.clearHold("Turn one card edge farther toward the camera.");
+      this.pauseHold("Turn one card edge farther toward the camera.", now);
       return;
     }
     const pose = cardPose(h, focal);
+    const lowTilt = this.first ? 0.26 : 0.3;
+    const highTilt = this.first ? 0.76 : 0.72;
     const sideways =
-      Math.abs(pose.tiltX) >= 0.3 && Math.abs(pose.tiltX) <= 0.72;
+      Math.abs(pose.tiltX) >= lowTilt && Math.abs(pose.tiltX) <= highTilt;
     const vertical =
-      Math.abs(pose.tiltY) >= 0.3 && Math.abs(pose.tiltY) <= 0.72;
+      Math.abs(pose.tiltY) >= lowTilt && Math.abs(pose.tiltY) <= highTilt;
     const acceptable =
       pose.residual < 0.06 &&
       (this.stage === 0
@@ -251,8 +345,9 @@ export class CardCalibration {
         : this.stage === 1
           ? sideways && Math.sign(pose.tiltX) !== this.firstSign
           : this.stage === 2
-            ? vertical && Math.abs(pose.tiltX) < 0.3
-            : Math.abs(pose.tiltX) < 0.2 && Math.abs(pose.tiltY) < 0.2);
+            ? vertical && Math.abs(pose.tiltX) < (this.first ? 0.35 : 0.3)
+            : Math.abs(pose.tiltX) < (this.first ? 0.24 : 0.2) &&
+              Math.abs(pose.tiltY) < (this.first ? 0.24 : 0.2));
     const prompt =
       this.stage === 0
         ? "Turn one edge toward the camera."
@@ -262,36 +357,37 @@ export class CardCalibration {
             ? "Tip the top or bottom edge toward the camera."
             : "Face the camera. Hold the card flat beside your eyes, at the same depth.";
     if (!acceptable || pose.depth < 15 || pose.depth > 200) {
-      this.clearHold(prompt);
+      this.pauseHold(prompt, now);
       return;
     }
     if (
-      !view.sample.eyesValid ||
       !Number.isFinite(view.sample.position.z) ||
       Math.abs(view.sample.position.z) < 1
     ) {
-      this.clearHold("Keep your face visible and look toward the camera.");
+      this.pauseHold("Keep your face visible and look toward the camera.", now);
       return;
     }
+    // Classification uses a temporal median, but measurement always retains
+    // each original quad with its face pose from the SAME captured frame.
+    const rawH = cardHomography(view);
+    const rawPose = rawH ? cardPose(rawH, focal) : null;
     if (
-      this.first &&
-      view.corners.some(
-        (p, i) =>
-          Math.hypot(
-            p.x - this.first!.corners[i].x,
-            p.y - this.first!.corners[i].y,
-          ) >
-          (view.width / 640) * 3,
-      )
-    )
-      this.clearHold("Hold still.");
+      !rawPose ||
+      !Number.isFinite(rawPose.residual) ||
+      rawPose.residual >= 0.06 ||
+      rawPose.depth < 15 ||
+      rawPose.depth > 200
+    ) {
+      this.pauseHold("Keep the card steady.", now);
+      return;
+    }
+    if (this.first) this.heldMs += Math.min(elapsed, CARD_MAX_FRAME_GAP_MS);
+    this.paused = false;
+    this.pausedAt = null;
+    this.anchor ??= this.filtered.corners.map((p) => ({ ...p }));
     this.first ??= view;
     this.frames.push(view);
-    this.progress = Math.min(
-      1,
-      (view.timestamp - this.first.timestamp) / 800,
-      this.frames.length / 6,
-    );
+    this.progress = Math.min(1, this.heldMs / 800, this.frames.length / 6);
     this.instruction =
       this.stage === 3 ? "Hold still beside your eyes…" : "Hold this tilt…";
     if (this.progress < 1 || this.frames.length < 6) return;
@@ -316,10 +412,10 @@ export class CardCalibration {
       }
       this.clearHold(
         this.stage === 1
-          ? "Now turn the opposite edge toward the camera."
+          ? "Captured. Turn the opposite edge toward the camera."
           : this.stage === 2
-            ? "Now tip the top or bottom edge toward the camera."
-            : "Now hold the card flat beside your eyes, at eye depth.",
+            ? "Captured. Tip the top or bottom edge toward the camera."
+            : "Captured. Hold the card flat beside your eyes, at eye depth.",
       );
       return;
     }
