@@ -41,7 +41,19 @@ export function spatialGeometry(
   const center = object
     .reduce((sum, point) => sum.add(point), new Vector3())
     .divideScalar(object.length);
-  const image = object.map((point) => screenIntersection(frame.eye, point));
+  const image = object.map((point) => {
+    if (frame.perspective === "window")
+      return screenIntersection(frame.eye, point);
+    const depth = frame.eye.z - point.z;
+    if (depth <= 0.01) return null;
+    // Rendered camera coordinates mapped onto the monitor, not physical rays
+    // intersecting it. The lens stays fixed as the head moves.
+    return new Vector3(
+      ((point.x - frame.eye.x) * frame.neutralDistanceCm) / depth,
+      ((point.y - frame.eye.y) * frame.neutralDistanceCm) / depth,
+      0,
+    );
+  });
   const currentDepth = frame.eye.z - center.z;
   const neutralDepth = frame.neutralDistanceCm - center.z;
   return {
@@ -54,7 +66,11 @@ export function spatialGeometry(
     // This isolates depth movement from changes due to gaze-driven rotation.
     depthScale:
       currentDepth > 0.01 && neutralDepth > 0.01
-        ? frame.eye.z / currentDepth / (frame.neutralDistanceCm / neutralDepth)
+        ? ((frame.perspective === "window"
+            ? frame.eye.z / frame.neutralDistanceCm
+            : 1) *
+            neutralDepth) /
+          currentDepth
         : null,
   };
 }

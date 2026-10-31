@@ -11,6 +11,7 @@ import {
   DEFAULT_SCREEN_CALIBRATION,
   ScreenWindow,
   viewportWidthCm,
+  type HeadPerspective,
   type ScreenCalibration,
   type ScreenFrame,
   type ScreenViewport,
@@ -25,6 +26,7 @@ export class CameraRig {
   private base = new Quaternion();
   private screenWindow: ScreenWindow;
   private screenCalibration = { ...DEFAULT_SCREEN_CALIBRATION };
+  private perspective: HeadPerspective = "camera";
   private viewport: ScreenViewport = { width: 1, height: 1, screenWidth: 1 };
   private transition: {
     from: Quaternion;
@@ -62,6 +64,7 @@ export class CameraRig {
           this.screenCalibration,
           this.viewport,
           this.target,
+          this.perspective,
         );
     } else {
       this.sphere.setFromVector3(this.camera.position.clone().sub(this.target));
@@ -99,7 +102,21 @@ export class CameraRig {
   configureScreen(calibration: ScreenCalibration) {
     this.screenCalibration = { ...calibration };
     if (this.mode === "position")
-      this.screenWindow.capture(calibration, this.viewport, this.target);
+      this.screenWindow.capture(
+        calibration,
+        this.viewport,
+        this.target,
+        this.perspective,
+      );
+  }
+
+  get headPerspective() {
+    return this.perspective;
+  }
+
+  setHeadPerspective(perspective: HeadPerspective) {
+    this.perspective = perspective;
+    if (this.mode === "position") this.screenWindow.setPerspective(perspective);
   }
 
   resize(viewport: ScreenViewport) {
@@ -118,6 +135,7 @@ export class CameraRig {
     // A clearly labelled preview of the setup before entering Head camera.
     const widthCm = viewportWidthCm(this.screenCalibration, this.viewport);
     return {
+      perspective: this.perspective,
       origin: this.camera.position.clone(),
       orientation: this.camera.quaternion.clone(),
       unitsPerCm:

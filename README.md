@@ -34,9 +34,12 @@ Google Fonts is optional; system fonts are used if unavailable.
    to head steering. These are experimental, not calibrated screen-gaze tracking.
    For eyes, hold your head still and look at the viewport center during capture.
 6. **Head camera** (`3`) uses physical head **position**, including sideways,
-   up/down, and closer/farther movement. An off-axis projection keeps the virtual
-   display plane fixed, giving the effect of looking through a window. Holding a
-   head position holds the camera there.
+   up/down, and closer/farther movement. **Move camera** is the default perspective:
+   approaching enlarges the object, retreating makes it smaller, and moving right
+   shifts its image left. The camera translates without automatically aiming back
+   at the object, so it can move off-center or leave the viewport. Holding a head
+   position holds the camera there. **Screen window** retains the earlier off-axis
+   projection that keeps the monitor as a fixed window into the scene.
    **Position only** is the default: the object stays fixed, and only head
    translation changes the perspective. Head rotation and eye direction do not
    steer or rotate anything. **+ Gaze rotation** keeps the earlier experiment:
@@ -71,20 +74,29 @@ animation. Head movement bypasses steering sensitivity, inversion, and normalize
 deadzones. In Head camera those controls affect gaze only, and are disabled in
 Position only. Camera translation and the screen projection update together in
 physical units.
+Move camera keeps its lens fixed under head movement; viewport resizing updates
+the lens from the calibrated viewing-area dimensions. Switching perspective
+preserves the applied camera position, reference, world scale, and object angle.
+Away from neutral, changing perspective changes the image immediately, including
+while paused. It does not recenter or start another reference capture.
 
 **Your setup in 3D**, pinned beneath **Pick a perspective**, shows the applied
 head position, viewing area, and a bounding box for the model. Gold lines on the
-screen show the projected image. The distances and approximate **Size** percentage
+screen show the rendered image in the selected perspective. Move camera labels
+the object's distance as virtual camera geometry and omits physical viewing
+rays; Screen window shows the eye-to-object rays through the display.
+The distances and approximate **Size** percentage
 update in Head camera, including simulated input; paused or missing input holds
 the last applied position. Other modes show a labelled setup preview.
 
-With the defaults, the object's center is only **15 cm behind the screen**.
-Moving 10 cm toward the screen changes its center-plane image scale to about
-94%; moving 10 cm away gives about 105%. Distant background changes more strongly.
-This is the fixed-screen window effect: the physical screen occupies more of
-your vision as you approach it, while a behind-screen object's image can shrink
-slightly in screen pixels. The diagram exposes this geometry. Its size readout
-isolates head depth; gaze rotation can also change the model's visible outline.
+With the defaults and an object centered ahead, Move camera gives about **120%**
+image scale after a 10 cm approach, or **86%** after a 10 cm retreat. This is a
+moving virtual camera rather than a physical window through the fixed monitor.
+For comparison, Screen window places the object's center about **15 cm behind
+the display** and gives about 94% on approach or 105% on retreat. That physical
+window projection compensates for the screen filling more of your vision as you
+approach it. The diagram's approximate size readout isolates head depth; gaze
+rotation can also change the model's visible outline.
 
 **Try simulated tracking** exercises the same input mapping and camera controls
 without a camera, including the animated reference dot. It is visibly labelled and is
@@ -161,12 +173,16 @@ Browser checks covered card resizing/confirmation, persistence across reload,
 the distance-estimate flow, and a scaled portrait stream whose approach reduced
 the reported viewing distance. Test calibration settings were cleared afterward.
 Overview tests compare the diagram's screen image with the actual camera projection
-under XYZ movement and a rotated screen frame, and check depth scale, held poses,
+in both perspectives under XYZ movement and a rotated screen frame, and check depth scale, held poses,
 rebasing, and a preview that leaves the main camera unchanged. The diagram's SVG
 was also rendered at closer, neutral, and farther positions for visual inspection.
 Continuous gaze tests cover full revolutions, immediate neutral stopping with
 smoothing, opposite directions, frame-rate independence, missing input, and
 switching behaviors without changing the current angle.
+Move-camera tests check growth and shrinkage in screen pixels, off-center and
+offscreen translation, a fixed lens and orientation under head movement,
+perspective switching without recapture, manual navigation, resize, invalid
+tracking, and restoration of the regular camera on mode exit.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 

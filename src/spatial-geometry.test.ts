@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Euler, PerspectiveCamera, Vector3 } from "three";
-import { ScreenWindow } from "./screen-window.ts";
+import { ScreenWindow, type HeadPerspective } from "./screen-window.ts";
 import { CameraRig } from "./camera-rig.ts";
 import {
   boxCorners,
@@ -12,7 +12,7 @@ import {
 const close = (a: number, b: number) =>
   assert.ok(Math.abs(a - b) < 1e-8, `${a} ≈ ${b}`);
 
-function setup() {
+function setup(perspective: HeadPerspective = "window") {
   const camera = new PerspectiveCamera(40, 4 / 3, 0.01, 100);
   camera.position.set(3, 2, 8);
   camera.quaternion.setFromEuler(new Euler(0.2, -0.4, 0.1));
@@ -25,6 +25,7 @@ function setup() {
     { screenWidthCm: 70.8, eyeDistanceCm: 46, objectDistanceCm: 61 },
     { width: 800, height: 600, screenWidth: 1600 },
     world(new Vector3(0, 0, -61)),
+    perspective,
   );
   const corners = boxCorners(
     new Vector3(-5, -5, -63),
@@ -33,27 +34,28 @@ function setup() {
   return { camera, window, corners };
 }
 
-test("overview image agrees with the actual off-axis camera under XYZ movement", () => {
-  const { camera, window, corners } = setup();
-  for (const input of [
-    { x: 0, y: 0, z: 0 },
-    { x: 9, y: -4, z: -12 },
-    { x: -8, y: 5, z: 18 },
-  ]) {
-    window.apply(input);
-    camera.updateMatrixWorld();
-    const geometry = spatialGeometry(window.frame, corners);
-    close(geometry.center.z, -15);
-    close(geometry.frame.eye.z, 46 + input.z);
-    assert.ok(geometry.image);
-    for (let i = 0; i < corners.length; i++) {
-      const ndc = corners[i].clone().project(camera);
-      close(geometry.image[i].x, (ndc.x * geometry.frame.widthCm) / 2);
-      close(geometry.image[i].y, (ndc.y * geometry.frame.heightCm) / 2);
-      close(geometry.image[i].z, 0);
+for (const perspective of ["window", "camera"] as const)
+  test(`overview image agrees with the actual ${perspective} perspective under XYZ movement`, () => {
+    const { camera, window, corners } = setup(perspective);
+    for (const input of [
+      { x: 0, y: 0, z: 0 },
+      { x: 9, y: -4, z: -12 },
+      { x: -8, y: 5, z: 18 },
+    ]) {
+      window.apply(input);
+      camera.updateMatrixWorld();
+      const geometry = spatialGeometry(window.frame, corners);
+      close(geometry.center.z, -15);
+      close(geometry.frame.eye.z, 46 + input.z);
+      assert.ok(geometry.image);
+      for (let i = 0; i < corners.length; i++) {
+        const ndc = corners[i].clone().project(camera);
+        close(geometry.image[i].x, (ndc.x * geometry.frame.widthCm) / 2);
+        close(geometry.image[i].y, (ndc.y * geometry.frame.heightCm) / 2);
+        close(geometry.image[i].z, 0);
+      }
     }
-  }
-});
+  });
 
 test("depth readout reveals the modest size change of a nearby behind-screen object", () => {
   const { window, corners } = setup();
@@ -114,10 +116,31 @@ test("the overview's pre-tracking preview does not change the camera or its proj
   const position = camera.position.clone();
   const projection = camera.projectionMatrix.clone();
   const preview = rig.screenFrame;
+  assert.equal(preview.perspective, "camera");
   close(preview.eye.z, 46);
   assert.ok(camera.position.equals(position));
   assert.ok(camera.projectionMatrix.equals(projection));
   rig.setMode("position");
   close(rig.screenFrame.unitsPerCm, preview.unitsPerCm);
   close(rig.screenFrame.widthCm, preview.widthCm);
+});
+
+test("camera-perspective size readout grows on approach and shrinks on retreat", () => {
+  const { window, corners } = setup("camera");
+  window.apply({ x: 0, y: 0, z: -10 });
+  close(spatialGeometry(window.frame, corners).depthScale!, 61 / 51);
+  window.apply({ x: 0, y: 0, z: 10 });
+  close(spatialGeometry(window.frame, corners).depthScale!, 61 / 71);
+});
+
+test("an object behind the camera cannot produce a mirrored overview image", () => {
+  for (const perspective of ["window", "camera"] as const) {
+    const { camera, window } = setup(perspective);
+    const point = camera.position
+      .clone()
+      .add(new Vector3(0, 0, 1).applyQuaternion(camera.quaternion));
+    const geometry = spatialGeometry(window.frame, [point]);
+    assert.equal(geometry.image, null);
+    assert.equal(geometry.depthScale, null);
+  }
 });

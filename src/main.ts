@@ -22,6 +22,7 @@ import { smoothGazeSignal, type GazeRotationMode } from "./object-rotation";
 import {
   BANK_CARD_WIDTH_CM,
   DEFAULT_SCREEN_CALIBRATION,
+  type HeadPerspective,
   type ScreenCalibration,
 } from "./screen-window";
 
@@ -211,6 +212,18 @@ function setMode(mode: ViewMode) {
 }
 
 function syncHeadCameraControls() {
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-head-perspective]")
+    .forEach((button) => {
+      const selected =
+        button.dataset.headPerspective === viewer.rig.headPerspective;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  $("head-perspective-note").textContent =
+    viewer.rig.headPerspective === "camera"
+      ? "Closer makes it larger. Move sideways to see different sides; the image can shift off-center."
+      : "The monitor is a fixed window into the scene.";
   document
     .querySelectorAll<HTMLButtonElement>("[data-head-view]")
     .forEach((button) => {
@@ -688,6 +701,16 @@ for (const event of ["pointerup", "pointercancel", "lostpointercapture"])
     cardDrag = null;
   });
 document
+  .querySelectorAll<HTMLButtonElement>("[data-head-perspective]")
+  .forEach((button) =>
+    button.addEventListener("click", () => {
+      viewer.rig.setHeadPerspective(
+        button.dataset.headPerspective as HeadPerspective,
+      );
+      syncHeadCameraControls();
+    }),
+  );
+document
   .querySelectorAll<HTMLButtonElement>("[data-head-view]")
   .forEach((button) =>
     button.addEventListener("click", () => {
@@ -1033,6 +1056,7 @@ function animate(now: number) {
         ? "HEAD CAMERA · XYZ"
         : `${String(Math.round(viewer.rig.azimuth)).padStart(3, "0")}° ${viewer.rig.mode === "orbit" ? "AZIMUTH" : "LOOK MODE"}`;
     $("stage").dataset.mode = viewer.rig.mode;
+    $("stage").dataset.perspective = viewer.rig.headPerspective;
     $("stage").dataset.input = inputMode;
     $("stage").dataset.paused = String(paused);
     $("stage").dataset.reference = reference.pending

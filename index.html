@@ -137,7 +137,7 @@
           class="spatial-overview"
           id="spatial-overview"
           aria-labelledby="overview-title"
-          title="Estimated physical layout. The box represents the model; the screen represents the 3D viewing area."
+          title="Head position, virtual model and rendered screen image. Distances are estimates; the screen represents the 3D viewing area."
         >
           <div class="overview-heading">
             <h2 id="overview-title">Your setup in 3D</h2>
@@ -148,14 +148,14 @@
             role="img"
             aria-label="3D diagram of your head, screen, and model"
           ></svg>
-          <p class="overview-legend">Box = object · gold = image on screen</p>
+          <p class="overview-legend">Gold = rendered camera image</p>
           <dl class="overview-measurements">
             <div>
               <dt>You → screen</dt>
               <dd data-to-screen>—</dd>
             </div>
             <div>
-              <dt>You → object</dt>
+              <dt data-object-distance-label>Camera → object</dt>
               <dd data-to-object>—</dd>
             </div>
           </dl>
@@ -339,7 +339,30 @@
         </p>
         <div class="position-options" id="position-options" hidden>
           <div class="control-label">
-            <span>Head camera</span><span class="small muted">POSITION</span>
+            <span>Perspective</span><span class="small muted">HEAD CAMERA</span>
+          </div>
+          <div
+            class="segmented"
+            role="group"
+            aria-label="Head camera perspective"
+            aria-describedby="head-perspective-note"
+          >
+            <button
+              data-head-perspective="camera"
+              class="active"
+              aria-pressed="true"
+            >
+              Move camera</button
+            ><button data-head-perspective="window" aria-pressed="false">
+              Screen window
+            </button>
+          </div>
+          <p class="signal-note" id="head-perspective-note">
+            Closer makes it larger. Move sideways to see different sides; the
+            image can shift off-center.
+          </p>
+          <div class="control-label">
+            <span>Object motion</span><span class="small muted">POSITION</span>
           </div>
           <div
             class="segmented"
@@ -621,12 +644,14 @@
         <div>
           <h3>Head camera</h3>
           <p>
-            Move left/right, up/down, closer or farther. Screen calibration sets
-            the physical scale and viewing perspective. Position only keeps the
-            object fixed and ignores head turns. Choose + Gaze rotation to let
-            your eyes rotate the object while your head position moves the view.
-            Follow gaze sets the angle; Continuous keeps turning while you look
-            away and stops at the current angle when your eyes return to center.
+            Move left/right, up/down, closer or farther. Move camera makes the
+            object larger as you approach and lets it shift off-center. Screen
+            window keeps the monitor as a fixed window into the scene. Position
+            only keeps the object fixed and ignores head turns. Choose + Gaze
+            rotation to let your eyes rotate the object while your head position
+            moves the view. Follow gaze sets the angle; Continuous keeps turning
+            while you look away and stops at the current angle when your eyes
+            return to center.
           </p>
         </div>
       </div>

@@ -29,6 +29,8 @@ export class SpatialOverview {
   private depth: HTMLElement;
   private scale: HTMLElement;
   private modeButton: HTMLButtonElement;
+  private legend: HTMLElement;
+  private objectDistanceLabel: HTMLElement;
 
   constructor(private container: HTMLElement) {
     this.plot = container.querySelector("svg")!;
@@ -38,6 +40,10 @@ export class SpatialOverview {
     this.depth = container.querySelector("[data-object-depth]")!;
     this.scale = container.querySelector("[data-depth-scale]")!;
     this.modeButton = container.querySelector("button")!;
+    this.legend = container.querySelector(".overview-legend")!;
+    this.objectDistanceLabel = container.querySelector(
+      "[data-object-distance-label]",
+    )!;
   }
 
   update(geometry: SpatialGeometry | null, state: OverviewState) {
@@ -48,10 +54,18 @@ export class SpatialOverview {
     const { frame, center, eyeToObjectCm, depthScale } = geometry;
     this.toScreen.textContent = `${frame.eye.z.toFixed(0)} cm`;
     this.toObject.textContent = `${eyeToObjectCm.toFixed(0)} cm`;
+    this.legend.textContent =
+      frame.perspective === "camera"
+        ? "Gold = rendered camera image"
+        : "Box = object · gold = image on screen";
+    this.objectDistanceLabel.textContent =
+      frame.perspective === "camera" ? "Camera → object" : "You → object";
     this.depth.textContent =
-      Math.abs(center.z) < 0.5
-        ? "Object at the screen"
-        : `${Math.abs(center.z).toFixed(0)} cm ${center.z < 0 ? "behind" : "in front of"} screen`;
+      frame.perspective === "camera"
+        ? "Virtual camera view"
+        : Math.abs(center.z) < 0.5
+          ? "Object at the screen"
+          : `${Math.abs(center.z).toFixed(0)} cm ${center.z < 0 ? "behind" : "in front of"} screen`;
     this.scale.textContent =
       depthScale === null ? "—" : `~${Math.round(depthScale * 100)}%`;
     this.draw(geometry);
@@ -162,15 +176,18 @@ export class SpatialOverview {
     const headPoint = project(head);
     const bodyPoint = project(shoulders);
     const headRadius = 4.5 / unitsPerPixel;
-    const rays = [object[0], object[3], object[5], object[6]]
-      .map((corner) =>
-        line(
-          [eye, corner],
-          "#a5b5c0",
-          'stroke-opacity=".25" stroke-dasharray="2.5 3"',
-        ),
-      )
-      .join("");
+    const rays =
+      frame.perspective === "window"
+        ? [object[0], object[3], object[5], object[6]]
+            .map((corner) =>
+              line(
+                [eye, corner],
+                "#a5b5c0",
+                'stroke-opacity=".25" stroke-dasharray="2.5 3"',
+              ),
+            )
+            .join("")
+        : "";
     const screenImage = image
       ? `<g clip-path="url(#overview-screen-clip)">${BOX_FACES.map(
           (face) =>
@@ -179,7 +196,7 @@ export class SpatialOverview {
       : "";
     this.plot.innerHTML = `
       <title>Your head, the viewing area, and the model in 3D</title>
-      <desc>The wireframe box is the model. Its gold image is projected onto the cyan screen. Distances are estimates.</desc>
+      <desc>The wireframe box is the virtual model. Gold on the cyan screen shows the rendered image. ${frame.perspective === "window" ? "Dashed lines show physical viewing rays." : "Camera perspective: head motion moves the virtual camera with a fixed lens."} Distances are estimates.</desc>
       <defs><clipPath id="overview-screen-clip"><polygon points="${points(screen)}"/></clipPath></defs>
       ${rays}
       ${center.z <= 0 ? cube() : ""}

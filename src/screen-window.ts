@@ -16,8 +16,11 @@ export interface ScreenViewport {
   pixelRatio?: number;
 }
 
+export type HeadPerspective = "camera" | "window";
+
 /** Physical screen coordinates: right +X, up +Y, toward the viewer +Z. */
 export interface ScreenFrame {
+  perspective: HeadPerspective;
   origin: Vector3;
   orientation: Quaternion;
   unitsPerCm: number;
@@ -51,13 +54,14 @@ export function viewportWidthCm(
   return (calibration.screenWidthCm * viewport.width) / viewport.screenWidth;
 }
 
-/** A fixed display plane viewed from a moving eye, all tracking offsets in cm. */
+/** Shared physical translation frame with camera or fixed-display projection. */
 export class ScreenWindow {
   private origin = new Vector3();
   private orientation = new Quaternion();
   private bias = new Vector3();
   private eye = new Vector3();
   private unitsPerCm = 1;
+  private perspective: HeadPerspective = "window";
   private calibration = { ...DEFAULT_SCREEN_CALIBRATION };
   private viewport: ScreenViewport = { width: 1, height: 1, screenWidth: 1 };
 
@@ -67,6 +71,7 @@ export class ScreenWindow {
     calibration: ScreenCalibration,
     viewport: ScreenViewport,
     target: Vector3,
+    perspective: HeadPerspective = this.perspective,
   ) {
     if (
       ![
@@ -77,6 +82,7 @@ export class ScreenWindow {
     )
       throw new Error("Screen measurements must be positive.");
     this.calibration = { ...calibration };
+    this.perspective = perspective;
     this.viewport = { ...viewport };
     this.origin.copy(this.camera.position);
     this.orientation.copy(this.camera.quaternion);
@@ -90,6 +96,11 @@ export class ScreenWindow {
 
   resize(viewport: ScreenViewport) {
     this.viewport = { ...viewport };
+    this.project();
+  }
+
+  setPerspective(perspective: HeadPerspective) {
+    this.perspective = perspective;
     this.project();
   }
 
@@ -128,13 +139,17 @@ export class ScreenWindow {
       return;
     const widthCm = viewportWidthCm(this.calibration, this.viewport);
     const heightCm = (widthCm * height) / width;
-    const distance = this.calibration.eyeDistanceCm + this.eye.z;
+    const window = this.perspective === "window";
+    const distance = this.calibration.eyeDistanceCm + (window ? this.eye.z : 0);
+    const shiftX = window ? this.eye.x : 0;
+    const shiftY = window ? this.eye.y : 0;
     const near = this.camera.near;
-    // Frustum edges are rays from the eye through the fixed screen rectangle.
-    const left = ((-widthCm / 2 - this.eye.x) * near) / distance;
-    const right = ((widthCm / 2 - this.eye.x) * near) / distance;
-    const bottom = ((-heightCm / 2 - this.eye.y) * near) / distance;
-    const top = ((heightCm / 2 - this.eye.y) * near) / distance;
+    // Camera: a lens fixed under head motion, with no automatic aiming.
+    // Window: rays from the moving eye through the fixed display rectangle.
+    const left = ((-widthCm / 2 - shiftX) * near) / distance;
+    const right = ((widthCm / 2 - shiftX) * near) / distance;
+    const bottom = ((-heightCm / 2 - shiftY) * near) / distance;
+    const top = ((heightCm / 2 - shiftY) * near) / distance;
     this.camera.position
       .copy(this.origin)
       .add(
@@ -164,6 +179,7 @@ export class ScreenWindow {
   get frame(): ScreenFrame {
     const widthCm = viewportWidthCm(this.calibration, this.viewport);
     return {
+      perspective: this.perspective,
       origin: this.origin.clone(),
       orientation: this.orientation.clone(),
       unitsPerCm: this.unitsPerCm,
