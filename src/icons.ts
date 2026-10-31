@@ -10,6 +10,8 @@ const paths: Record<string, string> = {
   orbit:
     '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-35 12 12)"/><path d="m16 3 4 1-1 4"/>',
   look: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  position:
+    '<path d="M3 12h18m-4-4 4 4-4 4M7 8l-4 4 4 4M12 3v3m0 12v3"/><circle cx="12" cy="12" r="3"/>',
   mouse: '<rect x="6" y="2" width="12" height="20" rx="6"/><path d="M12 6v4"/>',
   face: '<path d="M8 2H4a2 2 0 0 0-2 2v4m14-6h4a2 2 0 0 1 2 2v4M2 16v4a2 2 0 0 0 2 2h4m14-6v4a2 2 0 0 1-2 2h-4M7 9h.01M17 9h.01M12 9v5h-2m-2 3s4 3 8 0"/>',
   play: '<path d="m9 5 10 7-10 7Z"/>',

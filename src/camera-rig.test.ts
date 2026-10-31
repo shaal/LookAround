@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PerspectiveCamera } from "three";
+import { PerspectiveCamera, Vector3 } from "three";
 import { CameraRig } from "./camera-rig.ts";
 
 test("sustained deflection orbits more than 360 degrees without changing distance", () => {
@@ -58,4 +58,61 @@ test("rebasing look mode retains the visible view when tracking resumes at neutr
   const current = camera.quaternion.clone();
   rig.update({ x: 0, y: 0 }, 1 / 60);
   assert.ok(camera.quaternion.equals(current));
+});
+
+test("head-camera holds a camera-local displacement without drift or orientation changes", () => {
+  const camera = new PerspectiveCamera();
+  const rig = new CameraRig(camera);
+  rig.setMode("position");
+  const base = camera.position.clone(),
+    orientation = camera.quaternion.clone();
+  const right = new Vector3(1, 0, 0).applyQuaternion(orientation);
+  for (let i = 0; i < 600; i++) rig.update({ x: 1, y: 0 }, 1 / 60);
+  assert.ok(
+    camera.position.distanceTo(base.clone().addScaledVector(right, 1.15)) <
+      1e-8,
+  );
+  assert.ok(camera.quaternion.equals(orientation));
+  rig.update({ x: 0, y: 0 }, 1 / 60);
+  assert.ok(camera.position.distanceTo(base) < 1e-8);
+});
+test("optional eyes rotate independently of translation axes; blinks hold orientation", () => {
+  const camera = new PerspectiveCamera();
+  const rig = new CameraRig(camera);
+  rig.setMode("position");
+  const base = camera.position.clone(),
+    q = camera.quaternion.clone();
+  const right = new Vector3(1, 0, 0).applyQuaternion(q);
+  rig.update({ x: 0.5, y: 0 }, 1 / 60, { x: 0.8, y: 0.2 });
+  assert.ok(camera.quaternion.angleTo(q) > 0.1);
+  const eyeRotation = camera.quaternion.clone();
+  rig.update({ x: 1, y: 0 }, 1 / 60, null);
+  assert.ok(camera.quaternion.equals(eyeRotation));
+  assert.ok(
+    camera.position.distanceTo(base.addScaledVector(right, 1.15)) < 1e-8,
+  );
+  const held = camera.position.clone();
+  rig.update(null, 1, { x: 0, y: 0 });
+  assert.ok(camera.position.equals(held));
+  assert.ok(camera.quaternion.equals(eyeRotation));
+});
+test("clutch anchoring preserves a nonzero absolute input across manual movement and mode changes", () => {
+  const camera = new PerspectiveCamera();
+  const rig = new CameraRig(camera);
+  const motion = { x: 0.7, y: -0.2 },
+    eyes = { x: 0.3, y: -0.1 };
+  rig.setMode("position");
+  rig.update(motion, 1 / 60, eyes);
+  rig.drag(30, 10);
+  const p = camera.position.clone(),
+    q = camera.quaternion.clone();
+  rig.rebase(motion, eyes);
+  rig.update(motion, 1 / 60, eyes);
+  assert.ok(camera.position.distanceTo(p) < 1e-8);
+  assert.ok(camera.quaternion.angleTo(q) < 1e-7);
+  rig.setMode("look");
+  const look = camera.quaternion.clone();
+  rig.rebase(motion);
+  rig.update(motion, 1 / 60);
+  assert.ok(camera.quaternion.angleTo(look) < 1e-7);
 });

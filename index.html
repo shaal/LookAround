@@ -191,7 +191,15 @@
               <span data-icon="orbit"></span><span>Orbit object</span
               ><kbd>1</kbd></button
             ><button id="mode-look" class="dock-button" aria-pressed="false">
-              <span data-icon="look"></span><span>Look around</span><kbd>2</kbd>
+              <span data-icon="look"></span><span>Look around</span
+              ><kbd>2</kbd></button
+            ><button
+              id="mode-position"
+              class="dock-button"
+              aria-pressed="false"
+            >
+              <span data-icon="position"></span><span>Head camera</span
+              ><kbd>3</kbd>
             </button>
           </div>
           <p class="mouse-hint">
@@ -256,11 +264,16 @@
         </p>
         <div class="tracking-divider"></div>
 
-        <div class="control-label">
+        <div class="control-label" id="source-label">
           <span>Tracking signal</span
           ><span class="small muted" id="source-kind">HEAD POSE</span>
         </div>
-        <div class="segmented" role="group" aria-label="Tracking signal">
+        <div
+          class="segmented"
+          id="source-controls"
+          role="group"
+          aria-label="Tracking signal"
+        >
           <button data-source="head" class="active" aria-pressed="true">
             Head</button
           ><button data-source="eyes" aria-pressed="false">
@@ -272,6 +285,28 @@
         <p class="signal-note" id="signal-note">
           Head rotation steers the camera.
         </p>
+        <div class="position-options" id="position-options" hidden>
+          <div class="control-label">
+            <span>Head position</span
+            ><span class="small muted">TRANSLATION</span>
+          </div>
+          <p class="signal-note">
+            Move your head sideways or up/down. Head turns don’t steer this
+            mode.
+          </p>
+          <label class="toggle-row" for="eye-rotation"
+            ><span
+              >Eyes rotate the view
+              <span class="experimental-label">✧</span></span
+            ><input type="checkbox" id="eye-rotation" role="switch" /><span
+              class="toggle-visual"
+            ></span
+          ></label>
+          <p class="signal-note">
+            Experimental eye direction. When eyes aren’t visible, rotation holds
+            while head movement stays active.
+          </p>
+        </div>
         <div class="movement-monitor">
           <div class="signal-pad" id="signal-pad">
             <span class="pad-horizontal"></span
@@ -340,6 +375,44 @@
         </div>
       </aside>
     </main>
+    <dialog
+      id="reference-dialog"
+      class="reference-dialog"
+      aria-labelledby="reference-title"
+      aria-describedby="reference-description"
+    >
+      <div class="reference-heading">
+        <span class="eyebrow" id="reference-label">LET’S FIND YOUR CENTER</span>
+        <h2 id="reference-title">Look at this dot.</h2>
+        <p id="reference-description">
+          Face the screen comfortably.<br />Keep looking at the dot, then click
+          it.
+        </p>
+      </div>
+      <button
+        id="reference-dot"
+        class="reference-dot"
+        type="button"
+        aria-label="Set neutral at the center dot"
+        aria-disabled="true"
+        autofocus
+      >
+        <span></span>
+      </button>
+      <div class="reference-caption">
+        <strong>Click to set your neutral position</strong>
+        <p id="reference-status" role="status" aria-live="polite">
+          Waiting for your camera…
+        </p>
+        <span class="reference-local"
+          >This sets your starting point for head movement and eye
+          direction.</span
+        >
+      </div>
+      <button id="reference-cancel" class="reference-cancel" type="button">
+        Stop camera
+      </button>
+    </dialog>
     <dialog id="help-dialog">
       <button
         id="close-help"
@@ -351,8 +424,8 @@
       <h2>A turn of the head.<br />A change of perspective.</h2>
       <p>
         Choose a sample or drop your own GLB, enable the camera, then face
-        forward while the neutral position is captured. Small movements work
-        best.
+        forward and look at the large center dot. Click the dot to set your
+        starting position. Tracking stays still until you do.
       </p>
       <div class="help-mode">
         <span data-icon="orbit"></span>
@@ -361,6 +434,17 @@
           <p>
             Turn away from center to move around the object continuously. Hold a
             small turn to go all the way around; center your head to stop.
+          </p>
+        </div>
+      </div>
+      <div class="help-mode">
+        <span data-icon="position"></span>
+        <div>
+          <h3>Head camera</h3>
+          <p>
+            Slide your head left/right or up/down to move the camera with it.
+            Head turns don’t rotate the view. Optionally enable Eyes rotate the
+            view to add experimental eye steering.
           </p>
         </div>
       </div>
@@ -382,8 +466,9 @@
       </p>
       <p class="muted small">
         Drag or scroll takes manual control. Space pauses movement. C sets a new
-        neutral without resetting the view. Lost tracking freezes the camera.
-        Nothing is recorded or uploaded.
+        neutral by reopening the dot without resetting the view. Lost tracking
+        freezes the camera; returning to the camera asks you to click the dot
+        again. Nothing is recorded or uploaded.
       </p>
       <a
         href="https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js"

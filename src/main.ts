@@ -1,12 +1,12 @@
 import "./style.css";
-import { Euler, Quaternion } from "three";
+import { Euler, Quaternion, Vector3 } from "three";
 import { icon, renderIcons } from "./icons";
 import { FaceTracker } from "./tracker";
 import { Viewer } from "./viewer";
 import {
-  clamp,
   controlSignal,
-  neutralFromSamples,
+  isFresh,
+  positionSignal,
   relativeAngles,
   smoothSignal,
   type Neutral,
@@ -16,6 +16,7 @@ import {
   type Source,
 } from "./tracking-math";
 import type { ViewMode } from "./camera-rig";
+import { ReferenceCapture } from "./reference-capture";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
@@ -67,8 +68,10 @@ let inputMode: "off" | "camera" | "simulation" = "off";
 let paused = false,
   manual = false,
   lostFace = false;
-let calibration: Sample[] | null = null;
+const reference = new ReferenceCapture();
 let filtered: Signal = { x: 0, y: 0 };
+let filteredEyes: Signal = { x: 0, y: 0 };
+let eyeRotation = false;
 let sensitivity = 1,
   smoothing = 0.45,
   deadZone = 0.12,
@@ -78,6 +81,7 @@ let inferenceMs = 0,
   nextHud = 0;
 let loadGeneration = 0,
   toastTimer: ReturnType<typeof setTimeout>;
+let inputGeneration = 0;
 
 function toast(message: string) {
   $("toast").textContent = message;
@@ -93,44 +97,107 @@ function status(message: string) {
 }
 function clearMotion() {
   filtered = { x: 0, y: 0 };
+  filteredEyes = { x: 0, y: 0 };
 }
 
 function setMode(mode: ViewMode) {
   viewer.rig.setMode(mode);
-  // Both camera behaviors start from the currently visible pose and neutral.
   rebase();
-  $("mode-orbit").classList.toggle("active", mode === "orbit");
-  $("mode-look").classList.toggle("active", mode === "look");
-  $("mode-orbit").setAttribute("aria-pressed", String(mode === "orbit"));
-  $("mode-look").setAttribute("aria-pressed", String(mode === "look"));
+  for (const value of ["orbit", "look", "position"]) {
+    $(`mode-${value}`).classList.toggle("active", mode === value);
+    $(`mode-${value}`).setAttribute("aria-pressed", String(mode === value));
+  }
+  for (const id of ["source-label", "source-controls", "signal-note"])
+    $(id).hidden = mode === "position";
+  $("position-options").hidden = mode !== "position";
   $("mode-hint").textContent =
     mode === "orbit"
       ? "Turn a little. Keep orbiting. Return to center to stop."
-      : "Stay in one spot. Turn your head to look left, right, up, or down.";
+      : mode === "look"
+        ? "Stay in one spot. Turn your head to look left, right, up, or down."
+        : "Slide your head sideways or up/down. Your camera moves with you.";
+}
+
+function commands(now = performance.now()) {
+  return {
+    movement:
+      viewer.rig.mode === "position"
+        ? positionSignal(sample, neutral, now, sensitivity, deadZone, invert)
+        : controlSignal(
+            sample,
+            neutral,
+            source,
+            now,
+            sensitivity,
+            deadZone,
+            invert,
+          ),
+    eyes:
+      viewer.rig.mode === "position" && eyeRotation
+        ? controlSignal(
+            sample,
+            neutral,
+            "eyes",
+            now,
+            sensitivity,
+            deadZone,
+            invert,
+          )
+        : null,
+  };
 }
 
 function rebase() {
-  viewer.rig.rebase();
-  clearMotion();
-  if (sample) neutral = neutralFromSamples([sample]);
+  // Clutch anchors preserve the visible pose; the dot-defined neutral is
+  // deliberately NOT changed here. Seed filters with the same offsets.
+  const input = commands();
+  filtered = input.movement ?? filtered;
+  filteredEyes = input.eyes ?? filteredEyes;
+  viewer.rig.rebase(
+    filtered,
+    viewer.rig.mode === "position" && eyeRotation ? filteredEyes : null,
+  );
 }
 
 function calibrate() {
   if (inputMode === "off") return;
+  viewer.rig.freeze();
   viewer.rig.rebase();
   clearMotion();
-  if (inputMode === "simulation") {
-    rebase();
-    toast("Simulated neutral updated");
-    return;
-  }
-  calibration = [];
   neutral = null;
-  status(
-    source === "head"
-      ? "Face forward and hold still for one second."
-      : "Face forward, eyes open, and look at the center.",
-  );
+  reference.begin();
+  const dialog = $<HTMLDialogElement>("reference-dialog");
+  if (!dialog.open) dialog.showModal();
+  $("reference-label").textContent =
+    inputMode === "simulation"
+      ? "SIMULATED INPUT · NO CAMERA"
+      : "LET’S FIND YOUR CENTER";
+  $("reference-cancel").textContent =
+    inputMode === "simulation" ? "Stop simulation" : "Stop camera";
+  $("reference-dot").setAttribute("aria-disabled", "true");
+  $("reference-status").textContent = "Waiting for a clear view of your face…";
+  status("Look at the large center dot and click it to set neutral.");
+}
+
+function closeReference() {
+  reference.cancel();
+  $<HTMLDialogElement>("reference-dialog").close();
+}
+
+function updateReference(now: number) {
+  if (!reference.pending) return;
+  const ready = reference.readiness(now);
+  $("reference-dot").setAttribute("aria-disabled", String(ready !== "ready"));
+  $("reference-status").textContent =
+    ready === "ready"
+      ? "Ready. Keep looking here and click the dot."
+      : ready === "moving"
+        ? "Keep your head comfortably still for a moment."
+        : ready === "settling"
+          ? "Finding your center…"
+          : inputMode === "simulation"
+            ? "Preparing the simulated reference…"
+            : "Waiting for a fresh face with both eyes visible…";
 }
 
 function updateButtons() {
@@ -163,11 +230,12 @@ function updateButtons() {
 }
 
 function stopInput() {
+  inputGeneration++;
   inputMode = "off";
   tracker.stop();
   sample = null;
   neutral = null;
-  calibration = null;
+  closeReference();
   paused = false;
   lostFace = false;
   viewer.rig.rebase();
@@ -184,7 +252,7 @@ tracker.onStatus = (message, failed) => {
     inputMode = "off";
     sample = null;
     neutral = null;
-    calibration = null;
+    closeReference();
     clearMotion();
     updateButtons();
   }
@@ -195,10 +263,13 @@ tracker.onSample = (next, points, elapsed) => {
   inferenceMs = elapsed;
   drawFace(points);
   if (!next) {
-    clearMotion();
-    if (neutral || calibration?.length) {
+    if (reference.pending) reference.observe(null, performance.now());
+    if (neutral) {
       lostFace = true;
-      status("Face lost. Movement frozen — face the camera to resume.");
+      viewer.rig.freeze();
+      status(
+        "Face lost. Movement frozen — return to the camera to set neutral again.",
+      );
     }
     return;
   }
@@ -206,32 +277,12 @@ tracker.onSample = (next, points, elapsed) => {
     lostFace = false;
     calibrate();
   }
-  if (calibration) {
-    if (source !== "head" && !next.eyesValid) {
-      calibration = [];
-      status("Open both eyes and look at the center to set neutral.");
-      return;
-    }
-    if (
-      calibration.length &&
-      next.rotation.angleTo(calibration[0].rotation) > 0.09
-    ) {
-      calibration = [];
-    }
-    calibration.push(next);
-    const elapsed = next.timestamp - calibration[0].timestamp;
-    status(
-      `Setting neutral · hold still ${Math.round(Math.min(clamp(elapsed / 900, 0, 1), calibration.length / 12) * 100)}%`,
-    );
-    if (elapsed >= 900 && calibration.length >= 12) {
-      neutral = neutralFromSamples(calibration);
-      calibration = null;
-      clearMotion();
-      status("Tracking ready. Small movements work best.");
-    }
+  if (reference.pending) {
+    reference.observe(next, performance.now());
+    updateReference(performance.now());
   } else if (!paused && !manual && neutral) {
     status(
-      source === "eyes" && !next.eyesValid
+      viewer.rig.mode !== "position" && source === "eyes" && !next.eyesValid
         ? "Eyes closed or obscured. Movement frozen."
         : "Tracking ready. Small movements work best.",
     );
@@ -282,13 +333,15 @@ $("camera-button").addEventListener("click", async () => {
   }
   stopInput();
   inputMode = "camera";
+  const generation = inputGeneration;
   updateButtons();
   calibrate();
   await tracker.start();
+  if (generation !== inputGeneration) return;
   if (inputMode === "camera" && !tracker.active) {
     inputMode = "off";
     sample = null;
-    calibration = null;
+    closeReference();
     neutral = null;
     updateButtons();
   }
@@ -301,16 +354,43 @@ $("simulation-button").addEventListener("click", () => {
   stopInput();
   inputMode = "simulation";
   simulationStart = performance.now();
-  neutral = { rotation: new Quaternion(), eyeX: 0, eyeY: 0 };
-  viewer.rig.rebase();
-  status("Simulated head + eye input. No webcam in use.");
   updateButtons();
+  calibrate();
+});
+
+$("reference-dot").addEventListener("click", () => {
+  const value = reference.accept(performance.now());
+  if (!value) {
+    updateReference(performance.now());
+    return;
+  }
+  neutral = value;
+  viewer.rig.freeze();
+  viewer.rig.rebase();
+  clearMotion();
+  $<HTMLDialogElement>("reference-dialog").close();
+  if (inputMode === "simulation") simulationStart = performance.now();
+  lostFace = false;
+  status(
+    paused
+      ? "Neutral set. Tracking is paused."
+      : inputMode === "simulation"
+        ? "Simulated movement. No webcam in use."
+        : "Neutral set. Move comfortably to explore.",
+  );
+  toast("Neutral set — this is your starting point.");
+});
+$("reference-cancel").addEventListener("click", stopInput);
+$<HTMLDialogElement>("reference-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  stopInput();
 });
 
 $("center-button").addEventListener("click", calibrate);
 function togglePause() {
-  if (inputMode === "off") return;
+  if (inputMode === "off" || reference.pending) return;
   paused = !paused;
+  viewer.rig.freeze();
   rebase();
   updateButtons();
   status(
@@ -325,7 +405,7 @@ $("pause-button").addEventListener("click", togglePause);
 
 viewer.onManual = (active) => {
   manual = active;
-  clearMotion();
+  viewer.rig.freeze();
   if (!active) {
     rebase();
     if (inputMode === "camera" && !paused)
@@ -353,12 +433,21 @@ document
           : source === "eyes"
             ? "Rough iris direction, not screen gaze. Keep your head still; look at center to set neutral."
             : "Head steering + a subtle eye direction assist. Eye input is experimental.";
-      if (inputMode !== "off") calibrate();
+      rebase();
     }),
   );
 
 $("mode-orbit").addEventListener("click", () => setMode("orbit"));
 $("mode-look").addEventListener("click", () => setMode("look"));
+$("mode-position").addEventListener("click", () => setMode("position"));
+$<HTMLInputElement>("eye-rotation").addEventListener("change", (event) => {
+  eyeRotation = (event.target as HTMLInputElement).checked;
+  rebase();
+  if (eyeRotation)
+    toast(
+      "Experimental eye rotation enabled. Use C to reset the center dot if needed.",
+    );
+});
 
 function resetView() {
   viewer.rig.reset();
@@ -408,7 +497,7 @@ for (const name of ["sensitivity", "smoothing", "deadzone"]) {
 }
 $<HTMLInputElement>("invert").addEventListener("change", (event) => {
   invert = (event.target as HTMLInputElement).checked;
-  clearMotion();
+  rebase();
 });
 
 async function loadModel(asset: string | File, key?: string) {
@@ -540,6 +629,7 @@ document.addEventListener("keydown", (event) => {
     event.target instanceof HTMLTextAreaElement ||
     event.target instanceof HTMLSelectElement ||
     $<HTMLDialogElement>("help-dialog").open ||
+    $<HTMLDialogElement>("reference-dialog").open ||
     event.ctrlKey ||
     event.metaKey ||
     event.altKey ||
@@ -554,9 +644,10 @@ document.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "r") resetView();
   if (event.key === "1") setMode("orbit");
   if (event.key === "2") setMode("look");
+  if (event.key === "3") setMode("position");
 });
 document.addEventListener("visibilitychange", () => {
-  clearMotion();
+  viewer.rig.freeze();
   if (document.hidden) {
     sample = null;
     if (inputMode === "camera") lostFace = true;
@@ -569,40 +660,46 @@ function animate(now: number) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   if (inputMode === "simulation") {
-    const t = (now - simulationStart) / 1000;
+    const t = reference.pending ? 0 : (now - simulationStart) / 1000;
     const yaw = Math.sin(t * 0.6) * 0.24,
       pitch = Math.sin(t * 0.37) * 0.09;
     sample = {
       rotation: new Quaternion().setFromEuler(new Euler(pitch, -yaw, 0, "YXZ")),
+      position: new Vector3(
+        -Math.sin(t * 0.5) * 7.2,
+        Math.sin(t * 0.4) * 3,
+        -60,
+      ),
       eyeX: -Math.sin(t * 0.8) * 0.07,
       eyeY: Math.sin(t * 0.6) * 0.025,
       eyesValid: true,
       timestamp: now,
     };
+    if (reference.pending) reference.observe(sample, now);
   }
-  let signal =
+  const allowed =
     !paused &&
     !manual &&
     !document.hidden &&
-    !calibration &&
-    inputMode !== "off"
-      ? controlSignal(
-          sample,
-          neutral,
-          source,
-          now,
-          sensitivity,
-          deadZone,
-          invert,
-        )
-      : null;
+    !reference.pending &&
+    inputMode !== "off";
+  const raw = allowed ? commands(now) : { movement: null, eyes: null };
+  let signal = raw.movement;
+  let eyeSignal = raw.eyes;
   if (signal) {
     filtered = smoothSignal(filtered, signal, dt, smoothing);
     signal = filtered;
-  } else clearMotion();
-  viewer.render(signal, dt);
+  } else if (viewer.rig.mode === "orbit") filtered = { x: 0, y: 0 };
+  if (eyeSignal) {
+    filteredEyes = smoothSignal(filteredEyes, eyeSignal, dt, smoothing);
+    eyeSignal = filteredEyes;
+  }
+  // The reference overlay covers the scene. Keep its pose (and GPU work)
+  // frozen so sampling the neutral isn't competing with 3D rendering.
+  if (!reference.pending) viewer.render(signal, dt, eyeSignal);
   if (now >= nextHud) {
     nextHud = now + 100;
+    updateReference(now);
     if (
       inputMode === "camera" &&
       neutral &&
@@ -630,14 +727,23 @@ function animate(now: number) {
         ? "Synthetic input · demo only"
         : inputMode === "off"
           ? "Waiting for input"
-          : sample && now - sample.timestamp <= 250
-            ? `${inferenceMs.toFixed(0)} ms inference · ${Math.round((relativeAngles(sample.rotation, neutral?.rotation ?? sample.rotation).x * 180) / Math.PI)}° yaw`
+          : isFresh(sample, now)
+            ? viewer.rig.mode === "position"
+              ? `${inferenceMs.toFixed(0)} ms inference · head position`
+              : `${inferenceMs.toFixed(0)} ms inference · ${Math.round((relativeAngles(sample.rotation, neutral?.rotation ?? sample.rotation).x * 180) / Math.PI)}° yaw`
             : "Waiting for face";
     $("view-angle").textContent =
-      `${String(Math.round(viewer.rig.azimuth)).padStart(3, "0")}° ${viewer.rig.mode === "orbit" ? "AZIMUTH" : "LOOK MODE"}`;
+      viewer.rig.mode === "position"
+        ? "HEAD CAMERA · XY"
+        : `${String(Math.round(viewer.rig.azimuth)).padStart(3, "0")}° ${viewer.rig.mode === "orbit" ? "AZIMUTH" : "LOOK MODE"}`;
     $("stage").dataset.mode = viewer.rig.mode;
     $("stage").dataset.input = inputMode;
     $("stage").dataset.paused = String(paused);
+    $("stage").dataset.reference = reference.pending
+      ? "pending"
+      : neutral
+        ? "set"
+        : "unset";
   }
   requestAnimationFrame(animate);
 }

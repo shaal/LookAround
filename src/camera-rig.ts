@@ -8,13 +8,14 @@ import {
 } from "three";
 import { clamp, type Signal } from "./tracking-math";
 
-export type ViewMode = "orbit" | "look";
+export type ViewMode = "orbit" | "look" | "position";
 
 export class CameraRig {
   readonly target = new Vector3(0, 0.1, 0);
   mode: ViewMode = "orbit";
   private sphere = new Spherical(6.8, Math.PI / 2 - 0.08, 0.3);
   private base = new Quaternion();
+  private basePosition = new Vector3();
   private transition: {
     from: Quaternion;
     to: Quaternion;
@@ -40,9 +41,10 @@ export class CameraRig {
   setMode(mode: ViewMode) {
     if (mode === this.mode) return;
     this.mode = mode;
-    if (mode === "look") {
+    if (mode !== "orbit") {
       this.transition = null;
       this.base.copy(this.camera.quaternion);
+      this.basePosition.copy(this.camera.position);
     } else {
       this.sphere.setFromVector3(this.camera.position.clone().sub(this.target));
       const to = new Quaternion().setFromRotationMatrix(
@@ -56,8 +58,41 @@ export class CameraRig {
     }
   }
 
-  rebase() {
-    if (this.mode === "look") this.base.copy(this.camera.quaternion);
+  rebase(signal: Signal = { x: 0, y: 0 }, eyeSignal: Signal | null = null) {
+    if (this.mode === "look")
+      this.base
+        .copy(this.camera.quaternion)
+        .multiply(this.lookOffset(signal).invert());
+    if (this.mode === "position") {
+      this.base.copy(this.camera.quaternion);
+      if (eyeSignal) this.base.multiply(this.eyeOffset(eyeSignal).invert());
+      this.basePosition
+        .copy(this.camera.position)
+        .sub(this.positionOffset(signal));
+    }
+  }
+
+  freeze() {
+    this.transition = null;
+  }
+
+  private lookOffset(signal: Signal) {
+    return new Quaternion().setFromEuler(
+      new Euler(-signal.y * 0.48, -signal.x * 0.78, 0, "YXZ"),
+    );
+  }
+
+  private eyeOffset(signal: Signal) {
+    return new Quaternion().setFromEuler(
+      new Euler(-signal.y * 0.22, -signal.x * 0.32, 0, "YXZ"),
+    );
+  }
+
+  private positionOffset(signal: Signal) {
+    // Use the captured base orientation, never the eye-rotated orientation.
+    return new Vector3(signal.x * 1.15, -signal.y * 0.85, 0).applyQuaternion(
+      this.base,
+    );
   }
 
   private applyOrbit() {
@@ -65,7 +100,7 @@ export class CameraRig {
     this.camera.lookAt(this.target);
   }
 
-  update(signal: Signal | null, dt: number) {
+  update(signal: Signal | null, dt: number, eyeSignal: Signal | null = null) {
     if (this.transition) {
       this.transition.elapsed += Math.min(dt, 0.05);
       const t = clamp(this.transition.elapsed / 0.24, 0, 1);
@@ -87,11 +122,18 @@ export class CameraRig {
         Math.PI - 0.12,
       );
       this.applyOrbit();
+    } else if (this.mode === "look") {
+      this.camera.quaternion.copy(this.base).multiply(this.lookOffset(signal));
     } else {
-      const offset = new Quaternion().setFromEuler(
-        new Euler(-signal.y * 0.48, -signal.x * 0.78, 0, "YXZ"),
-      );
-      this.camera.quaternion.copy(this.base).multiply(offset);
+      this.camera.position
+        .copy(this.basePosition)
+        .add(this.positionOffset(signal));
+      // No lookAt here: translation is independent of camera rotation. Invalid
+      // eye data freezes orientation while valid position input keeps working.
+      if (eyeSignal)
+        this.camera.quaternion
+          .copy(this.base)
+          .multiply(this.eyeOffset(eyeSignal));
     }
   }
 
@@ -114,6 +156,7 @@ export class CameraRig {
           ),
         );
       this.camera.quaternion.copy(this.base);
+      this.basePosition.copy(this.camera.position);
     }
   }
 

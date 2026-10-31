@@ -6,6 +6,8 @@ import {
   deadzone,
   measureEye,
   neutralFromSamples,
+  positionSignal,
+  sampleFromFace,
   relativeAngles,
   rotationFromMatrix,
   smoothSignal,
@@ -16,6 +18,7 @@ const close = (a: number, b: number, tolerance = 1e-6) =>
   assert.ok(Math.abs(a - b) < tolerance, `${a} ≈ ${b}`);
 const sample = (timestamp = 1000): Sample => ({
   rotation: new Quaternion(),
+  position: new Vector3(0, 0, -60),
   eyeX: 0,
   eyeY: 0,
   eyesValid: true,
@@ -97,4 +100,37 @@ test("deadzone clamps input and smoothing is independent of frame rate", () => {
   for (let i = 0; i < 30; i++) b = smoothSignal(b, target, 1 / 30, 0.5);
   close(a.x, b.x);
   close(a.y, b.y);
+});
+
+test("head-position signal ignores rotation, uses fixed neutral depth, and bounds movement", () => {
+  const n = neutralFromSamples([sample()]);
+  const s = sample();
+  s.rotation.setFromEuler(new Euler(0.3, -0.4, 0.1));
+  const stationary = positionSignal(s, n, 1050, 1, 0.12, false)!;
+  close(stationary.x, 0);
+  close(stationary.y, 0);
+  s.position.x = -7.2;
+  s.position.y = 5.4;
+  const initial = positionSignal(s, n, 1050, 1, 0.12, false)!;
+  close(initial.x, 1);
+  close(initial.y, -1);
+  s.position.z = -30;
+  assert.deepEqual(positionSignal(s, n, 1050, 1, 0.12, false), initial);
+  close(positionSignal(s, n, 1050, 1, 0.12, true)!.x, -1);
+  assert.equal(positionSignal(s, n, 1300, 1, 0.12, false), null);
+  n.position.z = 0;
+  assert.equal(positionSignal(s, n, 1050, 1, 0.12, false), null);
+});
+
+test("face samples extract translation separately from the rotation matrix", () => {
+  const q = new Quaternion().setFromEuler(new Euler(0.1, 0.3, 0));
+  const matrix = new Matrix4().compose(
+    new Vector3(-4, 2, -60),
+    q,
+    new Vector3(1, 1, 1),
+  );
+  const frame = sampleFromFace(matrix.elements, [], 960, 540, 1000, 0)!;
+  assert.ok(frame.position.equals(new Vector3(-4, 2, -60)));
+  close(Math.abs(frame.rotation.dot(q)), 1);
+  assert.equal(frame.eyesValid, false);
 });

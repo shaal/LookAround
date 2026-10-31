@@ -7,6 +7,7 @@ export interface Point {
 }
 export interface Sample {
   rotation: Quaternion;
+  position: Vector3;
   eyeX: number;
   eyeY: number;
   eyesValid: boolean;
@@ -14,6 +15,7 @@ export interface Sample {
 }
 export interface Neutral {
   rotation: Quaternion;
+  position: Vector3;
   eyeX: number;
   eyeY: number;
 }
@@ -89,6 +91,7 @@ export function sampleFromFace(
   const valid = !!a?.open && !!b?.open && blink < 0.45;
   return {
     rotation,
+    position: new Vector3(matrix[12], matrix[13], matrix[14]),
     eyeX: a && b ? (a.x + b.x) / 2 : 0,
     eyeY: a && b ? (a.y + b.y) / 2 : 0,
     eyesValid: valid,
@@ -112,6 +115,11 @@ export function neutralFromSamples(samples: readonly Sample[]): Neutral {
   const eyes = samples.filter((s) => s.eyesValid);
   return {
     rotation: q.normalize(),
+    position: new Vector3(
+      median(samples.map((s) => s.position.x)),
+      median(samples.map((s) => s.position.y)),
+      median(samples.map((s) => s.position.z)),
+    ),
     eyeX: eyes.length ? median(eyes.map((s) => s.eyeX)) : 0,
     eyeY: eyes.length ? median(eyes.map((s) => s.eyeY)) : 0,
   };
@@ -133,6 +141,47 @@ export function deadzone(value: number, size: number): number {
   return Math.sign(value) * clamp((Math.abs(value) - size) / (1 - size), 0, 1);
 }
 
+export function isFresh(sample: Sample | null, now: number): sample is Sample {
+  return (
+    !!sample &&
+    Number.isFinite(sample.timestamp) &&
+    now >= sample.timestamp &&
+    now - sample.timestamp <= 250
+  );
+}
+
+// Translation lives in the camera frame, not the rotating head frame. Normalize
+// by the FIXED neutral distance so leaning/turning cannot change the input gain.
+// This is a relative monocular estimate, not a calibrated measurement in cm.
+export function positionSignal(
+  sample: Sample | null,
+  neutral: Neutral | null,
+  now: number,
+  sensitivity: number,
+  zone: number,
+  invert: boolean,
+): Signal | null {
+  if (!isFresh(sample, now) || !neutral) return null;
+  const depth = Math.abs(neutral.position.z);
+  if (
+    depth < 1e-3 ||
+    ![...sample.position, ...neutral.position].every(Number.isFinite)
+  )
+    return null;
+  return {
+    x:
+      deadzone(
+        (-(sample.position.x - neutral.position.x) / depth / 0.12) *
+          sensitivity,
+        zone,
+      ) * (invert ? -1 : 1),
+    y: deadzone(
+      (-(sample.position.y - neutral.position.y) / depth / 0.09) * sensitivity,
+      zone,
+    ),
+  };
+}
+
 export function controlSignal(
   sample: Sample | null,
   neutral: Neutral | null,
@@ -143,13 +192,7 @@ export function controlSignal(
   invert: boolean,
 ): Signal | null {
   // An invalid frame bypasses smoothing entirely, including eyes-only blinks.
-  if (
-    !sample ||
-    !neutral ||
-    now - sample.timestamp > 250 ||
-    now < sample.timestamp
-  )
-    return null;
+  if (!isFresh(sample, now) || !neutral) return null;
   if (source === "eyes" && !sample.eyesValid) return null;
   const head = relativeAngles(sample.rotation, neutral.rotation);
   const h = { x: head.x / 0.32, y: head.y / 0.24 };

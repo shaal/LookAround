@@ -1583,3 +1583,209 @@ dialog > .text-link {
     scrollbar-color: #45444b transparent;
   }
 }
+
+/* The explicit reference is centered on the whole visible screen, rather than
+   on a sidebar or an object that may move. The button itself is the target. */
+.reference-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+.reference-dialog::backdrop {
+  background: #0b0c10dd;
+  backdrop-filter: blur(9px);
+}
+.reference-heading {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 228px);
+  width: min(520px, calc(100% - 32px));
+  transform: translateX(-50%);
+  text-align: center;
+}
+.reference-heading h2 {
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: -1.1px;
+  margin: 20px 0 12px;
+}
+.reference-heading p {
+  color: #aba9ac;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.reference-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 144px;
+  height: 144px;
+  border-radius: 50%;
+  border: 2px solid #f3d2a4;
+  background: #e9bb82;
+  box-shadow:
+    0 0 0 13px #e9bb8210,
+    0 0 0 30px #e9bb8207,
+    0 0 90px #e9bb8220;
+  display: grid;
+  place-items: center;
+  transition:
+    opacity 0.2s,
+    box-shadow 0.2s;
+}
+.reference-dot span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff8e9;
+  box-shadow: 0 0 18px #fff6d266;
+  pointer-events: none;
+}
+.reference-dot[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: wait;
+}
+.reference-dot[aria-disabled="false"]:hover {
+  background: #f2ca93;
+  box-shadow:
+    0 0 0 13px #e9bb8219,
+    0 0 0 30px #e9bb820d,
+    0 0 100px #e9bb8230;
+}
+.reference-dot:focus-visible {
+  outline: 2px solid #fff4dd;
+  outline-offset: 20px;
+}
+.reference-caption {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 115px);
+  width: min(520px, calc(100% - 32px));
+  transform: translateX(-50%);
+  text-align: center;
+}
+.reference-caption strong {
+  color: #e8d8c3;
+  font-size: 14px;
+  font-weight: 500;
+}
+.reference-caption p {
+  margin-top: 13px;
+  color: #9d9aa1;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.reference-local {
+  display: block;
+  margin: 27px auto 0;
+  color: #74727d;
+  font-size: 10px;
+  line-height: 1.7;
+  max-width: 310px;
+}
+.reference-cancel {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  border: 1px solid #4a4542;
+  border-radius: 7px;
+  background: #222124;
+  color: #bcb6af;
+  padding: 10px 14px;
+  font-size: 11px;
+}
+.reference-cancel:hover {
+  background: #353031;
+}
+.position-options {
+  padding: 0 0 4px;
+}
+.position-options .control-label {
+  margin-top: 0;
+}
+.position-options .toggle-row {
+  margin-top: 15px;
+  margin-bottom: 10px;
+}
+.experimental-label {
+  color: var(--accent);
+  margin-left: 4px;
+}
+.camera-dock {
+  max-width: calc(100% - 24px);
+}
+.dock-button {
+  min-width: 0;
+}
+
+@media (min-width: 741px) and (max-width: 1150px) {
+  .dock-button {
+    flex-direction: column;
+    font-size: 9px;
+    gap: 5px;
+    padding: 9px 11px;
+  }
+  .dock-button kbd {
+    display: none;
+  }
+}
+@media (max-width: 740px) {
+  .position-options {
+    grid-column: 1 / -1;
+  }
+  .tracking:has(#position-options:not([hidden])) .movement-monitor,
+  .tracking:has(#position-options:not([hidden])) .calibration-actions {
+    grid-row: auto;
+  }
+  .dock-button {
+    padding: 10px 9px;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .dock-button kbd {
+    display: none;
+  }
+  .dock-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  .reference-heading h2 {
+    font-size: 30px;
+  }
+  .reference-caption strong {
+    font-size: 13px;
+  }
+}
+@media (max-height: 580px) {
+  .reference-heading {
+    top: calc(50% - 185px);
+  }
+  .reference-heading h2 {
+    font-size: 26px;
+    margin: 12px 0 7px;
+  }
+  .reference-heading p {
+    font-size: 11px;
+  }
+  .reference-dot {
+    width: 108px;
+    height: 108px;
+  }
+  .reference-caption {
+    top: calc(50% + 85px);
+  }
+  .reference-local {
+    margin-top: 12px;
+  }
+}

@@ -256,8 +256,8 @@ export class Viewer {
   setGrid(value: boolean) {
     this.grid.visible = value;
   }
-  render(signal: Signal | null, dt: number) {
-    this.rig.update(signal, dt);
+  render(signal: Signal | null, dt: number, eyeSignal: Signal | null = null) {
+    this.rig.update(signal, dt, eyeSignal);
     this.mixer?.update(Math.min(dt, 0.05));
     this.renderer.render(this.scene, this.camera);
   }
