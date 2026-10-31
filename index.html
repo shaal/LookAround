@@ -362,6 +362,29 @@
             Shift your head to change perspective. The object stays fixed; head
             turns are ignored.
           </p>
+          <div id="gaze-rotation-options" hidden>
+            <div class="control-label"><span>Gaze behavior</span></div>
+            <div
+              class="segmented"
+              role="group"
+              aria-label="Gaze rotation behavior"
+              aria-describedby="gaze-rotation-note"
+            >
+              <button
+                data-gaze-rotation="follow"
+                class="active"
+                aria-pressed="true"
+              >
+                Follow gaze</button
+              ><button data-gaze-rotation="continuous" aria-pressed="false">
+                Continuous
+              </button>
+            </div>
+            <p class="signal-note" id="gaze-rotation-note">
+              Gaze sets the angle. Center your eyes to return to the starting
+              angle.
+            </p>
+          </div>
           <div class="quick-calibration">
             <button id="match-card" class="secondary-button" type="button">
               Match a bank card <span>↗</span></button
@@ -602,6 +625,8 @@
             the physical scale and viewing perspective. Position only keeps the
             object fixed and ignores head turns. Choose + Gaze rotation to let
             your eyes rotate the object while your head position moves the view.
+            Follow gaze sets the angle; Continuous keeps turning while you look
+            away and stops at the current angle when your eyes return to center.
           </p>
         </div>
       </div>

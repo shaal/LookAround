@@ -43,6 +43,11 @@ Google Fonts is optional; system fonts are used if unavailable.
    eyes rotate the model around its center while head position moves the camera.
    Eye loss/blinking holds the model angle. Switching between these behaviors
    preserves the current view and model angle.
+   Within **+ Gaze rotation**, choose **Follow gaze** for an angle that follows
+   your eyes, or **Continuous** to keep turning while looking away from center.
+   In Continuous, centering your eyes stops at the current angle immediately;
+   it does not return to the original angle. Left/right and up/down gaze control
+   rotation speed, with the existing gaze sensitivity and center dead zone.
 
 ### Simple physical setup
 
@@ -159,6 +164,9 @@ Overview tests compare the diagram's screen image with the actual camera project
 under XYZ movement and a rotated screen frame, and check depth scale, held poses,
 rebasing, and a preview that leaves the main camera unchanged. The diagram's SVG
 was also rendered at closer, neutral, and farther positions for visual inspection.
+Continuous gaze tests cover full revolutions, immediate neutral stopping with
+smoothing, opposite directions, frame-rate independence, missing input, and
+switching behaviors without changing the current angle.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 

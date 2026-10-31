@@ -24,7 +24,7 @@ import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CameraRig } from "./camera-rig";
-import { ObjectRotation } from "./object-rotation";
+import { ObjectRotation, type GazeRotationMode } from "./object-rotation";
 import type { Signal } from "./tracking-math";
 import { boxCorners, spatialGeometry } from "./spatial-geometry";
 
@@ -58,6 +58,7 @@ export class Viewer {
   private modelBounds = new Box3();
   private mixer: AnimationMixer | null = null;
   private objectRotation: ObjectRotation | null = null;
+  private gazeRotationMode: GazeRotationMode = "follow";
   private request = 0;
   private abort: AbortController | null = null;
   private wireframe = false;
@@ -247,6 +248,7 @@ export class Viewer {
     this.model = wrapper;
     this.modelBounds.copy(box).translate(center.clone().negate());
     this.objectRotation = new ObjectRotation(wrapper.quaternion);
+    this.objectRotation.setMode(this.gazeRotationMode);
     this.scene.add(wrapper);
     this.mixer = gltf.animations.length ? new AnimationMixer(root) : null;
     for (const clip of gltf.animations) this.mixer?.clipAction(clip).play();
@@ -271,6 +273,10 @@ export class Viewer {
     this.rig.rebase(signal);
     this.objectRotation?.rebase(eyeSignal);
   }
+  setGazeRotationMode(mode: GazeRotationMode, eyeSignal: Signal | null = null) {
+    this.gazeRotationMode = mode;
+    this.objectRotation?.setMode(mode, eyeSignal);
+  }
   resetView() {
     this.rig.reset();
     this.objectRotation?.reset();
@@ -288,7 +294,7 @@ export class Viewer {
   render(signal: Signal | null, dt: number, eyeSignal: Signal | null = null) {
     this.rig.update(signal, dt);
     if (this.rig.mode === "position" && signal)
-      this.objectRotation?.update(eyeSignal);
+      this.objectRotation?.update(eyeSignal, dt);
     this.mixer?.update(Math.min(dt, 0.05));
     this.renderer.render(this.scene, this.camera);
   }

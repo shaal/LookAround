@@ -18,6 +18,7 @@ import {
 import type { ViewMode } from "./camera-rig";
 import { ReferenceCapture } from "./reference-capture";
 import { SpatialOverview, type OverviewState } from "./spatial-overview";
+import { smoothGazeSignal, type GazeRotationMode } from "./object-rotation";
 import {
   BANK_CARD_WIDTH_CM,
   DEFAULT_SCREEN_CALIBRATION,
@@ -80,6 +81,7 @@ const reference = new ReferenceCapture();
 let filtered: Signal = { x: 0, y: 0 };
 let filteredEyes: Signal = { x: 0, y: 0 };
 let eyeRotation = false;
+let gazeRotationMode: GazeRotationMode = "follow";
 let screenCalibration = restoreScreenCalibration();
 let trackingCmPerPoseUnit: number | null = null;
 let neutralEyeDistanceCm = screenCalibration.eyeDistanceCm;
@@ -217,12 +219,26 @@ function syncHeadCameraControls() {
       button.setAttribute("aria-pressed", String(selected));
     });
   $("head-camera-note").textContent = eyeRotation
-    ? "Head position moves the view. Eyes rotate the object. Eye direction is experimental; blinks hold its angle."
+    ? "Head position moves the view. Eyes rotate the object. Blinks hold its angle."
     : "Shift your head to change perspective. The object stays fixed; head turns are ignored.";
+  $("gaze-rotation-options").hidden = !eyeRotation;
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-gaze-rotation]")
+    .forEach((button) => {
+      const selected = button.dataset.gazeRotation === gazeRotationMode;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  $("gaze-rotation-note").textContent =
+    gazeRotationMode === "continuous"
+      ? "Look away to keep turning. Center your eyes to stop at the current angle."
+      : "Gaze sets the angle. Center your eyes to return to the starting angle.";
   const positionOnly = viewer.rig.mode === "position" && !eyeRotation;
   if (viewer.rig.mode === "position")
     $("mode-hint").textContent = eyeRotation
-      ? "Move your head to change perspective. Look around to rotate the object."
+      ? gazeRotationMode === "continuous"
+        ? "Look away to turn the object. Center your eyes to stop. Head position moves the view."
+        : "Move your head to change perspective. Look around to rotate the object."
       : "Move left/right, up/down, closer or farther. The object stays fixed.";
   for (const id of ["sensitivity", "deadzone", "invert"])
     $<HTMLInputElement>(id).disabled = positionOnly;
@@ -680,6 +696,16 @@ document
       syncHeadCameraControls();
     }),
   );
+document
+  .querySelectorAll<HTMLButtonElement>("[data-gaze-rotation]")
+  .forEach((button) =>
+    button.addEventListener("click", () => {
+      gazeRotationMode = button.dataset.gazeRotation as GazeRotationMode;
+      viewer.setGazeRotationMode(gazeRotationMode, commands().eyes);
+      rebase();
+      syncHeadCameraControls();
+    }),
+  );
 
 function resetView() {
   viewer.resetView();
@@ -930,7 +956,13 @@ function animate(now: number) {
     signal = filtered;
   } else if (viewer.rig.mode === "orbit") filtered = { x: 0, y: 0 };
   if (eyeSignal) {
-    filteredEyes = smoothSignal(filteredEyes, eyeSignal, dt, smoothing);
+    filteredEyes = smoothGazeSignal(
+      filteredEyes,
+      eyeSignal,
+      dt,
+      smoothing,
+      gazeRotationMode,
+    );
     eyeSignal = filteredEyes;
   }
   // The reference overlay covers the scene. Keep its pose (and GPU work)
