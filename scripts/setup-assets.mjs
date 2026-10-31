@@ -51,6 +51,14 @@ async function download(url, path, hash) {
 }
 
 await mkdir(resolve(root, "public/vision/wasm"), { recursive: true });
+await copyFile(
+  resolve(root, "node_modules/@techstark/opencv-js/dist/opencv.js"),
+  resolve(root, "public/vision/opencv.js"),
+);
+await copyFile(
+  resolve(root, "node_modules/@techstark/opencv-js/LICENSE"),
+  resolve(root, "public/vision/opencv.LICENSE"),
+);
 const vision = resolve(root, "node_modules/@mediapipe/tasks-vision");
 await copyFile(
   `${vision}/vision_bundle.mjs`,

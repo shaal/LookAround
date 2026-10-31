@@ -61,13 +61,31 @@ distance is 61 cm, roughly two feet. These are estimates, not detected hardware.
 - **Match a bank card:** hold a standard bank card against the display and resize
   the outline with its corner handle or slider. Click **Fits my card**. This gives
   physical screen scale without typing measurements; no card photo is taken.
-- **Estimate distance:** with the camera active, hold still at the reference dot
-  for a one-second face-pose depth estimate. This is approximate camera-to-face
-  distance, not calibrated eye-to-screen measurement. The known 46 cm starting
-  estimate can be better than the camera estimate.
+- **Card beside face:** with the camera active, scan a standard bank-sized card
+  held landscape. Follow three tilted holds: one edge, the opposite edge, then
+  the top/bottom edge. The outline turns green and a progress line fills during
+  each usable hold. Bring the card closer for these tilts if needed. Finally,
+  face the camera and hold the card flat beside your eyes, at their depth.
+  Review the approximate camera distance, then click **Use estimate**. Leave
+  **My webcam is on this screen** checked only for a webcam mounted on the display.
+  Put the card away and complete the normal reference dot. This learns a local
+  face-pose scale and retains it through later reference captures. The face-only
+  reference updates screen distance when the webcam checkbox is checked.
 - **Fine-tune measurements** remains available. Measurements are saved locally.
   Card scale compensates for browser zoom changes; moving to a differently sized
   monitor requires another card match.
+
+Card scanning is an experimental approximation, not a precision measurement.
+It estimates a square-pixel pinhole lens with the principal point at image center
+and no distortion. Three different tilts must agree; weak, clipped, missing,
+unstable or inconsistent captures never replace the current setup. Detection
+uses local OpenCV.js, loaded only when scanning. Face and card measurements come
+from the same captured bitmap. The software checks edge support and corner-noise
+sensitivity, but cannot verify the card's physical dimensions or that its surface
+is actually level with the eyes. Lens distortion, webcam angle, autofocus, and
+MediaPipe's canonical face origin still limit accuracy. The learned scale is
+session-local; only an accepted screen-distance setting is saved. Cancel keeps
+the previous calibration and requires no new camera permission.
 
 For a stationary-object test, choose **Position only** and a model without
 animation. Head movement bypasses steering sensitivity, inversion, and normalized
@@ -143,6 +161,8 @@ The app links to each downloaded model's complete upstream README.
 | [Duck](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Duck)                    | Sony, SCEA Shared Source License 1.0; full license is downloaded alongside its credits.                                                                           |
 
 This project's MIT license covers its own code, not those separately licensed assets.
+The pinned OpenCV.js package is Apache-2.0; setup copies its license beside the
+local runtime at `/vision/opencv.LICENSE`.
 
 ## Validation
 
@@ -183,6 +203,14 @@ Move-camera tests check growth and shrinkage in screen pixels, off-center and
 offscreen translation, a fixed lens and orientation under head movement,
 perspective switching without recapture, manual navigation, resize, invalid
 tracking, and restoration of the regular camera on mode exit.
+Card tests recover a known synthetic lens and distance, reject weak/inconsistent
+views, exercise all four stable holds, and retain measured scale through a new
+neutral. The real OpenCV runtime detects synthetic card images and rejects
+clipped/face-overlapping rectangles. Worker tests check frame pairing, source-pixel
+mapping, cancelled initialization, frame cleanup and continued face tracking after
+a card error. The scan interface was inspected at desktop and phone widths using
+a synthetic result. Physical card detection comfort and absolute webcam accuracy
+still require a human trial; these tests do not establish either.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 
@@ -198,7 +226,10 @@ src/spatial-overview.ts  compact live 3D diagram of head, screen, and object
 src/tracking-math.ts   pose, iris geometry, neutral, guards, signal filtering
 src/reference-capture.ts  continuous one-second stability and reference capture
 src/tracker.ts         opt-in camera and worker lifecycle, one frame in flight
+src/card-calibration.ts  constrained multi-view card lens/scale estimation and holds
+src/card-scan.ts       guided live card scan and result UI
 src/main.ts            UI and input state, calibration, simulation
 public/vision-worker.js  classic worker running local MediaPipe inference
+public/card-detection.js  local OpenCV contours and straight-edge corner refinement
 scripts/setup-assets.mjs  reproducible downloads and decoder preparation
 ```

@@ -416,9 +416,9 @@
               class="secondary-button"
               type="button"
               disabled
-              title="Enable camera to estimate viewing distance"
+              title="Enable camera to measure with a card beside your face"
             >
-              Estimate distance <span>✧</span>
+              Card beside face <span>✧</span>
             </button>
             <p id="calibration-summary">32″ screen · ~46 cm viewing distance</p>
           </div>
@@ -534,6 +534,73 @@
         </div>
       </aside>
     </main>
+    <dialog
+      id="card-scan-dialog"
+      class="card-scan-dialog"
+      aria-labelledby="card-scan-title"
+      aria-describedby="card-scan-instructions"
+    >
+      <button
+        class="icon-button close-dialog"
+        type="button"
+        data-scan-close
+        aria-label="Cancel card scan"
+      >
+        ×
+      </button>
+      <h2 id="card-scan-title">Measure with your card.</h2>
+      <p id="card-scan-instructions">
+        Use a standard bank-sized card, held landscape. Keep all four edges
+        visible. You can bring it closer for the tilts.
+      </p>
+      <ol class="card-scan-steps" aria-label="Card scan steps">
+        <li data-scan-step>One edge</li>
+        <li data-scan-step>Other edge</li>
+        <li data-scan-step>Top edge</li>
+        <li data-scan-step>Beside eyes</li>
+      </ol>
+      <div class="card-scan-preview">
+        <video
+          autoplay
+          muted
+          playsinline
+          aria-label="Live camera for card measurement"
+        ></video>
+        <canvas aria-label="Detected card outline"></canvas>
+        <div class="card-scan-hint" aria-hidden="true"><div></div></div>
+      </div>
+      <div
+        class="card-scan-hold"
+        role="progressbar"
+        aria-label="Current pose hold"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+      ></div>
+      <p class="card-scan-status" data-scan-status role="status">
+        Loading local card detection…
+      </p>
+      <div class="card-scan-result" data-scan-result hidden>
+        <output aria-label="Estimated camera distance"></output
+        ><span>Camera to eye level · approximate</span>
+        <label
+          ><input type="checkbox" data-scan-screen checked />My webcam is on
+          this screen. Use this as my screen distance.</label
+        >
+      </div>
+      <div class="card-scan-actions">
+        <button type="button" class="secondary-button" data-scan-retry>
+          Start over
+        </button>
+        <button type="button" class="primary-button" data-scan-apply hidden>
+          Use estimate
+        </button>
+      </div>
+      <p class="card-scan-note">
+        Measured locally. The final card surface should be level with your eyes,
+        not in front of them. Cancel keeps your current setup.
+      </p>
+    </dialog>
     <dialog id="card-dialog" class="card-dialog" aria-labelledby="card-title">
       <button
         id="close-card"

@@ -1,4 +1,5 @@
 import { sampleFromFace, type Point, type Sample } from "./tracking-math";
+import type { CardDetection } from "./card-calibration";
 
 export class FaceTracker {
   private worker: Worker | null = null;
@@ -9,18 +10,29 @@ export class FaceTracker {
   private lastVideoTime = -1;
   private busy = false;
   private ready = false;
+  private cardScan = false;
   private cancelInitialization: (() => void) | null = null;
   onSample: (
     sample: Sample | null,
     points: Point[],
     inferenceMs: number,
+    card: CardDetection | null,
   ) => void = () => {};
+  onCardStatus: (ready: boolean, error?: string) => void = () => {};
   onStatus: (status: string, failed?: boolean) => void = () => {};
 
   constructor(readonly video: HTMLVideoElement) {}
 
   get active() {
     return this.stream !== null && this.ready;
+  }
+  startCardScan() {
+    this.cardScan = true;
+    this.worker?.postMessage({ type: "card-start" });
+  }
+  stopCardScan() {
+    this.cardScan = false;
+    this.worker?.postMessage({ type: "card-stop" });
   }
 
   async start() {
@@ -92,19 +104,28 @@ export class FaceTracker {
           if (data.type === "error") {
             fail(data.message);
           }
+          if (data.type === "card-ready" && this.cardScan)
+            this.onCardStatus(true);
+          if (data.type === "card-error" && this.cardScan)
+            this.onCardStatus(false, data.message);
           if (data.type === "result") {
             this.busy = false;
             const sample = data.points.length
               ? sampleFromFace(
                   data.matrix,
                   data.points,
-                  this.video.videoWidth,
-                  this.video.videoHeight,
+                  data.width,
+                  data.height,
                   data.timestamp,
                   data.blink,
                 )
               : null;
-            this.onSample(sample, data.points, data.inferenceMs);
+            this.onSample(
+              sample,
+              data.points,
+              data.inferenceMs,
+              data.card ?? null,
+            );
           }
         };
         worker.postMessage({ type: "init" });
@@ -135,7 +156,7 @@ export class FaceTracker {
         !this.ready ||
         this.busy ||
         document.hidden ||
-        now - this.lastFrame < 45 ||
+        now - this.lastFrame < (this.cardScan ? 100 : 45) ||
         this.video.readyState < 2 ||
         this.video.currentTime === this.lastVideoTime
       )
@@ -175,8 +196,9 @@ export class FaceTracker {
     this.video.srcObject = null;
     this.busy = false;
     this.ready = false;
+    this.cardScan = false;
     this.lastFrame = 0;
     this.lastVideoTime = -1;
-    this.onSample(null, [], 0);
+    this.onSample(null, [], 0, null);
   }
 }

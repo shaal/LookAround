@@ -19,6 +19,7 @@ import type { ViewMode } from "./camera-rig";
 import { ReferenceCapture } from "./reference-capture";
 import { SpatialOverview, type OverviewState } from "./spatial-overview";
 import { smoothGazeSignal, type GazeRotationMode } from "./object-rotation";
+import { CardScan } from "./card-scan";
 import {
   BANK_CARD_WIDTH_CM,
   DEFAULT_SCREEN_CALIBRATION,
@@ -97,7 +98,18 @@ let loadGeneration = 0,
   toastTimer: ReturnType<typeof setTimeout>;
 let inputGeneration = 0;
 let referenceCompleteAt: number | null = null;
-let estimateDistanceOnReference = false;
+let cardScreenDistancePending = false;
+const cardScan = new CardScan(
+  $<HTMLDialogElement>("card-scan-dialog"),
+  tracker,
+  (measurement, useForScreen) => {
+    if (inputMode !== "camera" || !tracker.active) return;
+    cardScreenDistancePending = useForScreen;
+    trackingCmPerPoseUnit = measurement.cmPerPoseUnit;
+    calibrate();
+  },
+  () => rebase(),
+);
 viewer.rig.configureScreen(screenCalibration);
 syncScreenCalibrationFields();
 
@@ -145,6 +157,7 @@ function syncScreenCalibrationFields() {
 }
 
 function applyScreenCalibration() {
+  cardScreenDistancePending = false;
   trackingCmPerPoseUnit = null;
   neutralEyeDistanceCm = screenCalibration.eyeDistanceCm;
   viewer.rig.configureScreen(screenCalibration);
@@ -300,7 +313,6 @@ function rebase() {
 
 function calibrate() {
   if (inputMode === "off") return;
-  estimateDistanceOnReference = false;
   // A new camera session starts at the configured neutral viewing distance.
   // Later reference holds preserve the fixed screen frame and tracking scale.
   if (trackingCmPerPoseUnit === null && viewer.rig.mode === "position")
@@ -326,7 +338,6 @@ function calibrate() {
 
 function closeReference() {
   reference.cancel();
-  estimateDistanceOnReference = false;
   referenceCompleteAt = null;
   $<HTMLDialogElement>("reference-dialog").close();
 }
@@ -389,8 +400,10 @@ function updateButtons() {
 }
 
 function stopInput() {
+  cardScreenDistancePending = false;
   inputGeneration++;
   inputMode = "off";
+  cardScan.close(false);
   trackingCmPerPoseUnit = null;
   tracker.stop();
   sample = null;
@@ -409,7 +422,9 @@ tracker.onStatus = (message, failed) => {
   if (inputMode !== "camera") return;
   status(message);
   if (failed) {
+    cardScreenDistancePending = false;
     inputMode = "off";
+    cardScan.close(false);
     sample = null;
     neutral = null;
     closeReference();
@@ -417,11 +432,16 @@ tracker.onStatus = (message, failed) => {
     updateButtons();
   }
 };
-tracker.onSample = (next, points, elapsed) => {
+tracker.onSample = (next, points, elapsed, card) => {
   if (inputMode !== "camera") return;
   sample = next;
   inferenceMs = elapsed;
   drawFace(points);
+  if (cardScan.active) {
+    if (!next && neutral) lostFace = true;
+    cardScan.observe(next, points, card, performance.now());
+    return;
+  }
   if (!next) {
     if (reference.pending) reference.observe(null, performance.now());
     if (neutral) {
@@ -521,19 +541,20 @@ $("simulation-button").addEventListener("click", () => {
 function finishReference(now: number) {
   const value = reference.accept(now);
   if (!value) return;
-  if (estimateDistanceOnReference) {
-    const estimate = Math.abs(value.position.z);
-    if (Number.isFinite(estimate) && estimate >= 15 && estimate <= 200) {
+  if (cardScreenDistancePending && trackingCmPerPoseUnit !== null) {
+    // The head may move while putting the card away. Transfer the measured
+    // scale to this face-only reference instead of reusing the earlier depth.
+    const distance = Math.abs(value.position.z) * trackingCmPerPoseUnit;
+    if (Number.isFinite(distance) && distance >= 15 && distance <= 200) {
       screenCalibration = {
         ...screenCalibration,
-        eyeDistanceCm: Math.round(estimate),
+        eyeDistanceCm: Math.round(distance),
       };
-      trackingCmPerPoseUnit = null;
       viewer.rig.configureScreen(screenCalibration);
       syncScreenCalibrationFields();
       saveScreenCalibration();
     }
-    estimateDistanceOnReference = false;
+    cardScreenDistancePending = false;
   }
   neutral = value;
   trackingCmPerPoseUnit ??=
@@ -633,8 +654,8 @@ $("screen-calibration-form").addEventListener("submit", (event) => {
 });
 $("estimate-distance").addEventListener("click", () => {
   if (inputMode !== "camera" || !tracker.active) return;
-  calibrate();
-  estimateDistanceOnReference = true;
+  viewer.rig.freeze();
+  cardScan.start();
 });
 
 function resizeCardOutline(width: number) {
@@ -912,6 +933,7 @@ document.addEventListener("keydown", (event) => {
     $<HTMLDialogElement>("help-dialog").open ||
     $<HTMLDialogElement>("reference-dialog").open ||
     $<HTMLDialogElement>("card-dialog").open ||
+    cardScan.active ||
     event.ctrlKey ||
     event.metaKey ||
     event.altKey ||
@@ -935,7 +957,10 @@ document.addEventListener("visibilitychange", () => {
     if (inputMode === "camera") lostFace = true;
   } else if (inputMode === "simulation") rebase();
 });
-window.addEventListener("pagehide", () => tracker.stop());
+window.addEventListener("pagehide", () => {
+  cardScan.close(false);
+  tracker.stop();
+});
 
 let last = performance.now();
 function animate(now: number) {
@@ -965,6 +990,7 @@ function animate(now: number) {
     !document.hidden &&
     !reference.pending &&
     !$<HTMLDialogElement>("card-dialog").open &&
+    !cardScan.active &&
     inputMode !== "off";
   const raw = allowed ? commands(now) : { movement: null, eyes: null };
   let signal = raw.movement;
@@ -990,7 +1016,11 @@ function animate(now: number) {
   }
   // The reference overlay covers the scene. Keep its pose (and GPU work)
   // frozen so sampling the neutral isn't competing with 3D rendering.
-  if (!reference.pending && !$<HTMLDialogElement>("card-dialog").open)
+  if (
+    !reference.pending &&
+    !$<HTMLDialogElement>("card-dialog").open &&
+    !cardScan.active
+  )
     viewer.render(signal, dt, eyeSignal);
   if (now >= nextHud) {
     nextHud = now + 100;
