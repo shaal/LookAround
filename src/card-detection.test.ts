@@ -97,3 +97,75 @@ test("a tilted card is detected without requiring its visible aspect ratio to be
     image.delete();
   }
 });
+
+test("small, low-contrast, and lower-cheek cards remain visible to the detector", () => {
+  for (const [x, y, width, height, background, cardColor] of [
+    [100, 120, 40, 25, 20, 220],
+    [90, 90, 160, 101, 100, 125],
+    [90, 290, 96, 60, 20, 220],
+  ]) {
+    const image = new cv.Mat(
+      360,
+      640,
+      cv.CV_8UC4,
+      new cv.Scalar(background, background, background, 255),
+    );
+    const face = Array.from({ length: 455 }, () => ({ x: 0.53, y: 0.5 }));
+    face[234].x = 0.44;
+    face[454].x = 0.62;
+    try {
+      cv.rectangle(
+        image,
+        new cv.Point(x, y),
+        new cv.Point(x + width, y + height),
+        new cv.Scalar(cardColor, cardColor, cardColor, 255),
+        -1,
+      );
+      const corners = scope.detectCardCorners!(cv, image.data, 640, 360, face);
+      assert.ok(
+        corners,
+        `Card at ${x},${y} with size ${width}x${height} and contrast ${cardColor - background}`,
+      );
+    } finally {
+      image.delete();
+    }
+  }
+});
+
+test("a rejected visible rectangle reports the position problem", () => {
+  const image = new cv.Mat(
+    360,
+    640,
+    cv.CV_8UC4,
+    new cv.Scalar(20, 20, 20, 255),
+  );
+  const face = Array.from({ length: 455 }, () => ({ x: 0.53, y: 0.5 }));
+  face[234].x = 0.44;
+  face[454].x = 0.62;
+  let issue = "";
+  try {
+    cv.rectangle(
+      image,
+      new cv.Point(260, 90),
+      new cv.Point(420, 191),
+      new cv.Scalar(220, 220, 220, 255),
+      -1,
+    );
+    assert.equal(
+      scope.detectCardCorners!(
+        cv,
+        image.data,
+        640,
+        360,
+        face,
+        (reason: string) => {
+          issue = reason;
+        },
+      ),
+      null,
+    );
+    assert.equal(issue, "beside-face");
+  } finally {
+    image.delete();
+  }
+});

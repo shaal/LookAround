@@ -75,6 +75,7 @@ self.onmessage = async ({ data }) => {
             s.categoryName === "eyeBlinkRight",
         ) ?? [];
       let card = null;
+      let cardIssue = cardsEnabled ? "not-found" : null;
       if (cardsEnabled && result.faceLandmarks[0]?.length) {
         try {
           const width = Math.min(640, data.bitmap.width);
@@ -94,6 +95,9 @@ self.onmessage = async ({ data }) => {
             width,
             height,
             result.faceLandmarks[0],
+            (reason) => {
+              cardIssue = reason;
+            },
           );
           if (corners)
             card = {
@@ -116,6 +120,7 @@ self.onmessage = async ({ data }) => {
         matrix: result.facialTransformationMatrixes[0]?.data ?? [],
         blink: Math.max(0, ...blinks.map((b) => b.score)),
         card,
+        cardIssue: card ? null : cardIssue,
         width: data.bitmap.width,
         height: data.bitmap.height,
         inferenceMs: performance.now() - start,

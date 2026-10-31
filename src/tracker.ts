@@ -1,5 +1,5 @@
 import { sampleFromFace, type Point, type Sample } from "./tracking-math";
-import type { CardDetection } from "./card-calibration";
+import type { CardDetection, CardIssue } from "./card-calibration";
 
 export class FaceTracker {
   private worker: Worker | null = null;
@@ -17,6 +17,7 @@ export class FaceTracker {
     points: Point[],
     inferenceMs: number,
     card: CardDetection | null,
+    cardIssue: CardIssue,
   ) => void = () => {};
   onCardStatus: (ready: boolean, error?: string) => void = () => {};
   onStatus: (status: string, failed?: boolean) => void = () => {};
@@ -125,6 +126,7 @@ export class FaceTracker {
               data.points,
               data.inferenceMs,
               data.card ?? null,
+              data.cardIssue ?? null,
             );
           }
         };
@@ -199,6 +201,6 @@ export class FaceTracker {
     this.cardScan = false;
     this.lastFrame = 0;
     this.lastVideoTime = -1;
-    this.onSample(null, [], 0, null);
+    this.onSample(null, [], 0, null, null);
   }
 }

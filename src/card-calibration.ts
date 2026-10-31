@@ -4,6 +4,17 @@ export interface CardPoint {
   x: number;
   y: number;
 }
+export type CardIssue =
+  | "not-found"
+  | "beside-face"
+  | "small"
+  | "clipped"
+  | "landscape"
+  | "edges"
+  | "ambiguous"
+  | null;
+export const CARD_MAX_FRAME_AGE_MS = 1000;
+const CARD_MAX_FRAME_GAP_MS = 750;
 export interface CardDetection {
   corners: CardPoint[];
   width: number;
@@ -188,14 +199,17 @@ export class CardCalibration {
       !view ||
       !Number.isFinite(now) ||
       !Number.isFinite(view.timestamp) ||
-      now - view.timestamp > 250 ||
+      now - view.timestamp > CARD_MAX_FRAME_AGE_MS ||
       now < view.timestamp
     ) {
-      this.clearHold("Show your face and all four card edges.");
+      this.clearHold("Waiting for a clear card view.");
       return;
     }
     if (view.timestamp <= this.lastTimestamp) return;
-    if (this.lastTimestamp >= 0 && view.timestamp - this.lastTimestamp > 250)
+    if (
+      this.lastTimestamp >= 0 &&
+      view.timestamp - this.lastTimestamp > CARD_MAX_FRAME_GAP_MS
+    )
       this.clearHold("Hold still.");
     this.lastTimestamp = view.timestamp;
     const dimensions = `${view.width}x${view.height}`;
@@ -204,6 +218,21 @@ export class CardCalibration {
       return;
     }
     this.dimensions = dimensions;
+    const shortEdge = Math.min(
+      ...view.corners.map((p, i) => {
+        const next = view.corners[(i + 1) % view.corners.length];
+        return Math.hypot(p.x - next.x, p.y - next.y);
+      }),
+    );
+    if (
+      shortEdge <
+      Math.max(1, view.width / 640) * (this.stage < 3 ? 45 : 18)
+    ) {
+      this.clearHold(
+        "Card found. Bring it closer to the camera for these tilts.",
+      );
+      return;
+    }
     const h = cardHomography(view);
     const focal = this.lens?.focal ?? (h ? fit([h]) : null);
     if (!h || !focal) {
@@ -258,7 +287,11 @@ export class CardCalibration {
       this.clearHold("Hold still.");
     this.first ??= view;
     this.frames.push(view);
-    this.progress = Math.min(1, (view.timestamp - this.first.timestamp) / 800);
+    this.progress = Math.min(
+      1,
+      (view.timestamp - this.first.timestamp) / 800,
+      this.frames.length / 6,
+    );
     this.instruction =
       this.stage === 3 ? "Hold still beside your eyes…" : "Hold this tilt…";
     if (this.progress < 1 || this.frames.length < 6) return;

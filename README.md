@@ -71,6 +71,11 @@ distance is 61 cm, roughly two feet. These are estimates, not detected hardware.
   Put the card away and complete the normal reference dot. This learns a local
   face-pose scale and retains it through later reference captures. The face-only
   reference updates screen distance when the webcam checkbox is checked.
+  If no outline appears, put the card in either dashed area beside your face,
+  keep its long edges horizontal, and use a contrasting background. The scan
+  reports face/card detection separately and explains placement, size, clipping,
+  reflections and ambiguous rectangles. A red outline means the card was found;
+  follow the tilt/size instruction until it turns green and the hold advances.
 - **Fine-tune measurements** remains available. Measurements are saved locally.
   Card scale compensates for browser zoom changes; moving to a differently sized
   monitor requires another card match.
@@ -86,6 +91,9 @@ is actually level with the eyes. Lens distortion, webcam angle, autofocus, and
 MediaPipe's canonical face origin still limit accuracy. The learned scale is
 session-local; only an accepted screen-distance setting is saved. Cancel keeps
 the previous calibration and requires no new camera permission.
+The capture-only scan tolerates up to one second of processing delay and 750 ms
+between paired frames, while requiring six distinct stable frames per hold.
+Live head/eye steering retains its separate 250 ms freshness limit.
 
 For a stationary-object test, choose **Position only** and a model without
 animation. Head movement bypasses steering sensitivity, inversion, and normalized
@@ -211,6 +219,11 @@ mapping, cancelled initialization, frame cleanup and continued face tracking aft
 a card error. The scan interface was inspected at desktop and phone widths using
 a synthetic result. Physical card detection comfort and absolute webcam accuracy
 still require a human trial; these tests do not establish either.
+Browser troubleshooting also exercised all four holds with a synthetic moving
+card and portrait through the actual MediaPipe/OpenCV worker, reaching an
+approximate result of 51 cm for the fixture's 52 cm card depth. A missing-card
+check verified the face/card labels and visible placement guides. This is software
+validation, not a live-card accuracy measurement.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 

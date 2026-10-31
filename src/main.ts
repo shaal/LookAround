@@ -432,14 +432,14 @@ tracker.onStatus = (message, failed) => {
     updateButtons();
   }
 };
-tracker.onSample = (next, points, elapsed, card) => {
+tracker.onSample = (next, points, elapsed, card, cardIssue) => {
   if (inputMode !== "camera") return;
   sample = next;
   inferenceMs = elapsed;
   drawFace(points);
   if (cardScan.active) {
     if (!next && neutral) lostFace = true;
-    cardScan.observe(next, points, card, performance.now());
+    cardScan.observe(next, points, card, performance.now(), cardIssue);
     return;
   }
   if (!next) {

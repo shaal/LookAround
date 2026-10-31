@@ -129,31 +129,58 @@ test("duplicates, stale frames, gaps, movement and missing face reset rather tha
   observe(1100);
   observe(1200);
   assert.ok(session.progress > 0);
-  observe(1600);
+  observe(2100);
   assert.equal(session.progress, 0);
-  observe(1700, 2100);
+  observe(2200, 3301);
   assert.equal(session.progress, 0);
-  observe(2200);
-  observe(2300);
-  session.observe(null, 2400);
+  observe(3400);
+  observe(3500);
+  session.observe(null, 3600);
   assert.equal(session.progress, 0);
   session.observe(
     {
       ...view,
       corners: view.corners.map((p) => ({ x: p.x + 25, y: p.y })),
-      timestamp: 2500,
-      sample: face(2500),
+      timestamp: 3700,
+      sample: face(3700),
     },
-    2500,
+    3700,
   );
   assert.equal(session.views.length, 0);
   session.observe(
     {
       ...view,
-      timestamp: 2600,
-      sample: { ...face(2600), position: new Vector3(0, 0, NaN) },
+      timestamp: 3800,
+      sample: { ...face(3800), position: new Vector3(0, 0, NaN) },
     },
-    2600,
+    3800,
   );
   assert.equal(session.progress, 0);
+});
+
+test("slow paired camera frames complete a hold while live movement still rejects stale samples", () => {
+  const session = new CardCalibration(),
+    view = card(0.55);
+  for (let i = 0; i < 6; i++) {
+    const timestamp = 1000 + i * 500;
+    session.observe(
+      { ...view, timestamp, sample: face(timestamp) },
+      timestamp + 400,
+    );
+  }
+  assert.equal(session.stage, 1);
+  assert.equal(positionSignal(face(1000), face(1000), 1400, 52), null);
+});
+
+test("a visible small card requests a closer capture instead of accepting an unreliable lens", () => {
+  const session = new CardCalibration();
+  for (let i = 0; i < 10; i++) {
+    const timestamp = 1000 + i * 100;
+    session.observe(
+      { ...card(0.55, 0, 80), timestamp, sample: face(timestamp) },
+      timestamp,
+    );
+  }
+  assert.equal(session.stage, 0);
+  assert.match(session.instruction, /Bring it closer/);
 });

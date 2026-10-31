@@ -1849,6 +1849,7 @@ dialog > .text-link {
 }
 .card-scan-dialog[data-complete="true"] .card-scan-preview,
 .card-scan-dialog[data-complete="true"] #card-scan-instructions,
+.card-scan-dialog[data-complete="true"] .card-scan-readiness,
 .card-scan-dialog[data-complete="true"] .card-scan-hold {
   display: none;
 }
@@ -1955,6 +1956,12 @@ dialog > .text-link {
   font-size: 13px;
   line-height: 1.5;
   color: #edb5af;
+}
+.card-scan-readiness {
+  color: #b7b9c2;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 12px;
 }
 .card-scan-dialog[data-holding="true"] .card-scan-status {
   color: #8fd2ae;

@@ -1,7 +1,9 @@
 import {
   CardCalibration,
+  CARD_MAX_FRAME_AGE_MS,
   type CardDetection,
   type CardMeasurement,
+  type CardIssue,
 } from "./card-calibration";
 import type { FaceTracker } from "./tracker";
 import type { Point, Sample } from "./tracking-math";
@@ -19,6 +21,7 @@ export class CardScan {
   private result: HTMLElement;
   private meter: HTMLElement;
   private steps: HTMLElement[];
+  private readiness: HTMLElement;
 
   constructor(
     private dialog: HTMLDialogElement,
@@ -34,6 +37,7 @@ export class CardScan {
     this.result = dialog.querySelector("[data-scan-result]")!;
     this.meter = dialog.querySelector("[role=progressbar]")!;
     this.steps = Array.from(dialog.querySelectorAll("[data-scan-step]"));
+    this.readiness = dialog.querySelector("[data-scan-readiness]")!;
     dialog
       .querySelector("[data-scan-close]")!
       .addEventListener("click", () => this.close());
@@ -79,6 +83,7 @@ export class CardScan {
     this.dialog.dataset.holding = "false";
     this.dialog.dataset.error = "false";
     this.dialog.dataset.complete = "false";
+    this.readiness.textContent = "Face: waiting · Card: waiting";
     this.result.hidden = true;
     this.apply.hidden = true;
     this.heading.textContent = "Measure with your card.";
@@ -147,8 +152,18 @@ export class CardScan {
     points: Point[],
     card: CardDetection | null,
     now: number,
+    cardIssue: CardIssue = null,
   ) {
     if (!this.active || !this.ready) return;
+    const detectedCard = card;
+    this.readiness.textContent = `Face ${sample ? "found" : "not found"} · Card ${detectedCard ? "found" : "not found"}`;
+    this.dialog.dataset.faceFound = String(!!sample);
+    this.dialog.dataset.cardFound = String(!!detectedCard);
+    this.dialog.dataset.frameAge = sample
+      ? String(Math.round(now - sample.timestamp))
+      : "";
+    this.dialog.dataset.cardIssue = cardIssue ?? "";
+    let faceTurned = false;
     if (
       this.calibration.stage === 3 &&
       points[33] &&
@@ -159,8 +174,10 @@ export class CardScan {
       if (
         Math.abs(points[1].x - eyeCenter) >
         Math.abs(points[33].x - points[263].x) * 0.28
-      )
+      ) {
         card = null;
+        faceTurned = true;
+      }
     }
     this.calibration.observe(
       sample && card ? { ...card, sample, timestamp: sample.timestamp } : null,
@@ -180,29 +197,84 @@ export class CardScan {
       "aria-valuenow",
       String(Math.round(this.calibration.progress * 100)),
     );
-    if (card) {
-      this.canvas.width = card.width;
-      this.canvas.height = card.height;
-      this.canvas.parentElement!.style.aspectRatio = `${card.width}/${card.height}`;
+    const width = detectedCard?.width ?? this.video.videoWidth;
+    const height = detectedCard?.height ?? this.video.videoHeight;
+    if (width && height) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+      this.canvas.parentElement!.style.aspectRatio = `${width}/${height}`;
       const context = this.canvas.getContext("2d")!;
-      context.strokeStyle =
-        this.calibration.progress > 0 ? "#8fd2ae" : "#eea6a0";
-      context.lineWidth = card.width / 200;
-      context.beginPath();
-      card.corners.forEach((p, i) =>
-        i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y),
-      );
-      context.closePath();
-      context.stroke();
-    } else
-      this.canvas
-        .getContext("2d")!
-        .clearRect(0, 0, this.canvas.width, this.canvas.height);
+      if (detectedCard) {
+        context.strokeStyle =
+          this.calibration.progress > 0 ? "#8fd2ae" : "#eea6a0";
+        context.lineWidth = width / 200;
+        context.beginPath();
+        detectedCard.corners.forEach((p, i) =>
+          i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y),
+        );
+        context.closePath();
+        context.stroke();
+      } else if (points[1] && points[234] && points[454]) {
+        const faceWidth = Math.abs(points[234].x - points[454].x) * width;
+        const targetWidth = Math.min(
+          width * 0.25,
+          faceWidth * (this.calibration.stage < 3 ? 1.4 : 0.75),
+        );
+        const targetHeight = targetWidth / 1.586;
+        const centerX = points[1].x * width;
+        const eyeY =
+          points[33] && points[263]
+            ? ((points[33].y + points[263].y) / 2) * height
+            : points[1].y * height;
+        context.strokeStyle = "#efc38f";
+        context.lineWidth = Math.max(1, width / 400);
+        context.setLineDash([width / 90, width / 140]);
+        for (const side of [-1, 1]) {
+          const x = Math.max(
+            8,
+            Math.min(
+              width - targetWidth - 8,
+              centerX +
+                side * (faceWidth * 0.8 + targetWidth / 2) -
+                targetWidth / 2,
+            ),
+          );
+          const y = Math.max(
+            20,
+            Math.min(height - targetHeight - 8, eyeY - targetHeight / 2),
+          );
+          context.strokeRect(x, y, targetWidth, targetHeight);
+        }
+      }
+    }
     if (this.calibration.error) {
       this.fail(this.calibration.error);
       return;
     }
-    this.setStatus(this.calibration.instruction);
+    const hints: Record<Exclude<CardIssue, null>, string> = {
+      "not-found":
+        "Card not found. Move it into either dashed area, against a contrasting background.",
+      "beside-face": "Move the card into a dashed area beside your face.",
+      small: "No clear card outline yet. Try bringing it closer to the camera.",
+      clipped: "Move the whole card inside the preview, away from its edges.",
+      landscape:
+        "Try holding the card horizontally, with clear space around it.",
+      edges:
+        "Keep fingers off the front edges and avoid reflections on the card.",
+      ambiguous:
+        "Several rectangles are in view. Use a plainer background around the card.",
+    };
+    this.setStatus(
+      !sample
+        ? "Face not found. Look toward the camera and keep the card beside your face."
+        : now - sample.timestamp > CARD_MAX_FRAME_AGE_MS
+          ? "Camera processing is delayed. Hold still; try brighter light if this continues."
+          : faceTurned
+            ? "Face the camera straight on for this final hold."
+            : !detectedCard
+              ? hints[cardIssue ?? "not-found"]
+              : this.calibration.instruction,
+    );
     if (this.calibration.result) {
       this.ready = false;
       this.dialog.dataset.complete = "true";
