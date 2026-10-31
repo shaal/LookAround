@@ -71,7 +71,7 @@ let paused = false,
 const reference = new ReferenceCapture();
 let filtered: Signal = { x: 0, y: 0 };
 let filteredEyes: Signal = { x: 0, y: 0 };
-let eyeRotation = false;
+let eyeRotation = true;
 let sensitivity = 1,
   smoothing = 0.45,
   deadZone = 0.12,
@@ -154,7 +154,7 @@ function rebase() {
   const input = commands();
   filtered = input.movement ?? filtered;
   filteredEyes = input.eyes ?? filteredEyes;
-  viewer.rig.rebase(
+  viewer.rebase(
     filtered,
     viewer.rig.mode === "position" && eyeRotation ? filteredEyes : null,
   );
@@ -163,7 +163,7 @@ function rebase() {
 function calibrate() {
   if (inputMode === "off") return;
   viewer.rig.freeze();
-  viewer.rig.rebase();
+  viewer.rebase();
   clearMotion();
   neutral = null;
   reference.begin();
@@ -253,7 +253,7 @@ function stopInput() {
   closeReference();
   paused = false;
   lostFace = false;
-  viewer.rig.rebase();
+  viewer.rebase();
   clearMotion();
   context.clearRect(0, 0, overlay.width, overlay.height);
   status("Enable your webcam to get started.");
@@ -378,7 +378,7 @@ function finishReference(now: number) {
   if (!value) return;
   neutral = value;
   viewer.rig.freeze();
-  viewer.rig.rebase();
+  viewer.rebase();
   clearMotion();
   $<HTMLDialogElement>("reference-dialog").close();
   if (inputMode === "simulation") simulationStart = performance.now();
@@ -455,14 +455,11 @@ $("mode-position").addEventListener("click", () => setMode("position"));
 $<HTMLInputElement>("eye-rotation").addEventListener("change", (event) => {
   eyeRotation = (event.target as HTMLInputElement).checked;
   rebase();
-  if (eyeRotation)
-    toast(
-      "Experimental eye rotation enabled. Use C to reset the center dot if needed.",
-    );
+  if (eyeRotation) toast("Gaze rotates the object. Use C to reset neutral.");
 });
 
 function resetView() {
-  viewer.rig.reset();
+  viewer.resetView();
   setMode("orbit");
   rebase();
   toast("View reset");

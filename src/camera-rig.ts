@@ -58,14 +58,13 @@ export class CameraRig {
     }
   }
 
-  rebase(signal: Signal = { x: 0, y: 0 }, eyeSignal: Signal | null = null) {
+  rebase(signal: Signal = { x: 0, y: 0 }) {
     if (this.mode === "look")
       this.base
         .copy(this.camera.quaternion)
         .multiply(this.lookOffset(signal).invert());
     if (this.mode === "position") {
       this.base.copy(this.camera.quaternion);
-      if (eyeSignal) this.base.multiply(this.eyeOffset(eyeSignal).invert());
       this.basePosition
         .copy(this.camera.position)
         .sub(this.positionOffset(signal));
@@ -82,14 +81,8 @@ export class CameraRig {
     );
   }
 
-  private eyeOffset(signal: Signal) {
-    return new Quaternion().setFromEuler(
-      new Euler(-signal.y * 0.22, -signal.x * 0.32, 0, "YXZ"),
-    );
-  }
-
   private positionOffset(signal: Signal) {
-    // Use the captured base orientation, never the eye-rotated orientation.
+    // Translation uses the captured camera orientation.
     return new Vector3(signal.x * 1.15, -signal.y * 0.85, 0).applyQuaternion(
       this.base,
     );
@@ -100,7 +93,7 @@ export class CameraRig {
     this.camera.lookAt(this.target);
   }
 
-  update(signal: Signal | null, dt: number, eyeSignal: Signal | null = null) {
+  update(signal: Signal | null, dt: number) {
     if (this.transition) {
       this.transition.elapsed += Math.min(dt, 0.05);
       const t = clamp(this.transition.elapsed / 0.24, 0, 1);
@@ -128,12 +121,7 @@ export class CameraRig {
       this.camera.position
         .copy(this.basePosition)
         .add(this.positionOffset(signal));
-      // No lookAt here: translation is independent of camera rotation. Invalid
-      // eye data freezes orientation while valid position input keeps working.
-      if (eyeSignal)
-        this.camera.quaternion
-          .copy(this.base)
-          .multiply(this.eyeOffset(eyeSignal));
+      // Camera orientation stays fixed; gaze rotates the model in Viewer.
     }
   }
 

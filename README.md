@@ -36,8 +36,9 @@ Google Fonts is optional; system fonts are used if unavailable.
 6. **Head camera** (`3`) uses head **position**, not head rotation. Slide sideways
    or up/down to move the camera. Holding a position holds the camera there;
    returning to the reference returns its position. Depth movement is excluded.
-   **Eyes rotate the view** is independent and off by default. Eye loss/blinking
-   holds the angle while valid head-position input continues to move the camera.
+   **Gaze rotates object** is enabled by default: eyes rotate the model around its
+   center while head position moves the camera. Eye loss/blinking holds the model
+   angle. You can switch gaze rotation off independently.
 
 **Try simulated tracking** exercises the same input mapping and camera controls
 without a camera, including the animated reference dot. It is visibly labelled and is
@@ -111,6 +112,7 @@ See [docs/research.md](docs/research.md) for sources and design decisions.
 
 ```text
 src/viewer.ts          GLB loading, lighting, animation, disposal, mouse controls
+src/object-rotation.ts gaze-driven rotation of the centered model
 src/camera-rig.ts      orbit / fixed-position look / head-position camera behavior
 src/tracking-math.ts   pose, iris geometry, neutral, guards, signal filtering
 src/reference-capture.ts  continuous one-second stability and reference capture

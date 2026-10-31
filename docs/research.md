@@ -119,11 +119,12 @@ absolute offset, so holding a head position does not accumulate travel.
 
 The camera orientation stays fixed: there is no `lookAt(object)` on each frame,
 which would mix an automatic rotation into the translation. The object therefore
-changes screen position as well as perspective. The optional **Eyes rotate the
-view** channel adds modest local orientation offsets (about ±18° yaw, ±13° pitch)
-and defaults off. Blinking/unreliable eyes freezes that angle while translation
-continues. The translation axes always use the fixed base orientation rather
-than the eye-rotated camera. A single dot sets offsets, not gaze-to-angle gains.
+changes screen position as well as perspective. **Gaze rotates object** is enabled
+by default and applies bounded orientation offsets to the centered model (about
+±45° yaw, ±28° pitch). It never changes the camera orientation. Blinking/unreliable
+eyes freezes the model angle while head translation continues; the toggle disables
+gaze independently. The model's centered wrapper rotates without interfering with
+its internal animation clips. A single dot sets offsets, not gaze-to-angle gains.
 
 The software tests independently verify pure translation versus pure rotation,
 no drift while holding a position, camera-local axes, and independent eye loss.

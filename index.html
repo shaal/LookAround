@@ -296,15 +296,16 @@
           </p>
           <label class="toggle-row" for="eye-rotation"
             ><span
-              >Eyes rotate the view
+              >Gaze rotates object
               <span class="experimental-label">✧</span></span
-            ><input type="checkbox" id="eye-rotation" role="switch" /><span
-              class="toggle-visual"
-            ></span
+            ><input
+              type="checkbox"
+              id="eye-rotation"
+              role="switch"
+              checked /><span class="toggle-visual"></span
           ></label>
           <p class="signal-note">
-            Experimental eye direction. When eyes aren’t visible, rotation holds
-            while head movement stays active.
+            Experimental eye direction. Blinks hold the object’s angle.
           </p>
         </div>
         <div class="movement-monitor">
@@ -445,8 +446,8 @@
           <h3>Head camera</h3>
           <p>
             Slide your head left/right or up/down to move the camera with it.
-            Head turns don’t rotate the view. Optionally enable Eyes rotate the
-            view to add experimental eye steering.
+            Head turns don’t rotate the view. Gaze rotates the object by
+            default; turn it off with Gaze rotates object.
           </p>
         </div>
       </div>
