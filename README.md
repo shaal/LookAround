@@ -37,9 +37,12 @@ Google Fonts is optional; system fonts are used if unavailable.
    up/down, and closer/farther movement. An off-axis projection keeps the virtual
    display plane fixed, giving the effect of looking through a window. Holding a
    head position holds the camera there.
-   **Gaze rotates object** is enabled by default: eyes rotate the model around its
-   center while head position moves the camera. Eye loss/blinking holds the model
-   angle. You can switch gaze rotation off independently.
+   **Position only** is the default: the object stays fixed, and only head
+   translation changes the perspective. Head rotation and eye direction do not
+   steer or rotate anything. **+ Gaze rotation** keeps the earlier experiment:
+   eyes rotate the model around its center while head position moves the camera.
+   Eye loss/blinking holds the model angle. Switching between these behaviors
+   preserves the current view and model angle.
 
 ### Simple physical setup
 
@@ -58,10 +61,11 @@ distance is 61 cm, roughly two feet. These are estimates, not detected hardware.
   Card scale compensates for browser zoom changes; moving to a differently sized
   monitor requires another card match.
 
-For a stationary-object test, disable **Gaze rotates object** and choose a model
-without animation. Head movement bypasses steering sensitivity, inversion, and
-normalized deadzones. In Head camera those controls affect gaze only. Camera
-translation and the screen projection update together in physical units.
+For a stationary-object test, choose **Position only** and a model without
+animation. Head movement bypasses steering sensitivity, inversion, and normalized
+deadzones. In Head camera those controls affect gaze only, and are disabled in
+Position only. Camera translation and the screen projection update together in
+physical units.
 
 **Your setup in 3D**, pinned beneath **Pick a perspective**, shows the applied
 head position, viewing area, and a bounding box for the model. Gold lines on the

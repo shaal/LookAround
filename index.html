@@ -339,10 +339,29 @@
         </p>
         <div class="position-options" id="position-options" hidden>
           <div class="control-label">
-            <span>Head position</span
-            ><span class="small muted">TRANSLATION</span>
+            <span>Head camera</span><span class="small muted">POSITION</span>
           </div>
-          <p class="signal-note">Move sideways, up/down, closer or farther.</p>
+          <div
+            class="segmented"
+            id="head-view-controls"
+            role="group"
+            aria-label="Head camera behavior"
+            aria-describedby="head-camera-note"
+          >
+            <button
+              data-head-view="position"
+              class="active"
+              aria-pressed="true"
+            >
+              Position only</button
+            ><button data-head-view="gaze" aria-pressed="false">
+              + Gaze rotation <span>✧</span>
+            </button>
+          </div>
+          <p class="signal-note" id="head-camera-note">
+            Shift your head to change perspective. The object stays fixed; head
+            turns are ignored.
+          </p>
           <div class="quick-calibration">
             <button id="match-card" class="secondary-button" type="button">
               Match a bank card <span>↗</span></button
@@ -398,19 +417,6 @@
               <button type="submit" class="secondary-button">Apply</button>
             </form>
           </details>
-          <label class="toggle-row" for="eye-rotation"
-            ><span
-              >Gaze rotates object
-              <span class="experimental-label">✧</span></span
-            ><input
-              type="checkbox"
-              id="eye-rotation"
-              role="switch"
-              checked /><span class="toggle-visual"></span
-          ></label>
-          <p class="signal-note">
-            Experimental eye direction. Blinks hold the object’s angle.
-          </p>
         </div>
         <div class="movement-monitor">
           <div class="signal-pad" id="signal-pad">
@@ -593,9 +599,9 @@
           <h3>Head camera</h3>
           <p>
             Move left/right, up/down, closer or farther. Screen calibration sets
-            the physical scale and viewing perspective. Head turns don’t rotate
-            the view. Gaze rotates the object by default; turn it off with Gaze
-            rotates object.
+            the physical scale and viewing perspective. Position only keeps the
+            object fixed and ignores head turns. Choose + Gaze rotation to let
+            your eyes rotate the object while your head position moves the view.
           </p>
         </div>
       </div>

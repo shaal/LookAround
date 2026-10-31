@@ -79,7 +79,7 @@ let paused = false,
 const reference = new ReferenceCapture();
 let filtered: Signal = { x: 0, y: 0 };
 let filteredEyes: Signal = { x: 0, y: 0 };
-let eyeRotation = true;
+let eyeRotation = false;
 let screenCalibration = restoreScreenCalibration();
 let trackingCmPerPoseUnit: number | null = null;
 let neutralEyeDistanceCm = screenCalibration.eyeDistanceCm;
@@ -205,6 +205,27 @@ function setMode(mode: ViewMode) {
     mode === "position" ? "Gaze dead zone" : "Center dead zone";
   $("invert-label").textContent =
     mode === "position" ? "Invert gaze horizontal" : "Invert horizontal";
+  syncHeadCameraControls();
+}
+
+function syncHeadCameraControls() {
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-head-view]")
+    .forEach((button) => {
+      const selected = (button.dataset.headView === "gaze") === eyeRotation;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  $("head-camera-note").textContent = eyeRotation
+    ? "Head position moves the view. Eyes rotate the object. Eye direction is experimental; blinks hold its angle."
+    : "Shift your head to change perspective. The object stays fixed; head turns are ignored.";
+  const positionOnly = viewer.rig.mode === "position" && !eyeRotation;
+  if (viewer.rig.mode === "position")
+    $("mode-hint").textContent = eyeRotation
+      ? "Move your head to change perspective. Look around to rotate the object."
+      : "Move left/right, up/down, closer or farther. The object stays fixed.";
+  for (const id of ["sensitivity", "deadzone", "invert"])
+    $<HTMLInputElement>(id).disabled = positionOnly;
 }
 
 function commands(now = performance.now()) {
@@ -650,11 +671,15 @@ for (const event of ["pointerup", "pointercancel", "lostpointercapture"])
   $("card-resize-handle").addEventListener(event, () => {
     cardDrag = null;
   });
-$<HTMLInputElement>("eye-rotation").addEventListener("change", (event) => {
-  eyeRotation = (event.target as HTMLInputElement).checked;
-  rebase();
-  if (eyeRotation) toast("Gaze rotates the object. Use C to reset neutral.");
-});
+document
+  .querySelectorAll<HTMLButtonElement>("[data-head-view]")
+  .forEach((button) =>
+    button.addEventListener("click", () => {
+      eyeRotation = button.dataset.headView === "gaze";
+      rebase();
+      syncHeadCameraControls();
+    }),
+  );
 
 function resetView() {
   viewer.resetView();

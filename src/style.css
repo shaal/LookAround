@@ -1103,6 +1103,12 @@ kbd {
   margin: 0 0 10px;
   background: none;
 }
+.sliders label:has(+ input:disabled),
+.sliders input:disabled,
+.toggle-row:has(input:disabled) {
+  opacity: 0.4;
+  cursor: default;
+}
 .toggle-row {
   display: flex;
   align-items: center;
@@ -1955,14 +1961,6 @@ dialog > .text-link {
   font-size: 9px;
   color: #777a84;
   margin-top: 15px;
-}
-.position-options .toggle-row {
-  margin-top: 15px;
-  margin-bottom: 10px;
-}
-.experimental-label {
-  color: var(--accent);
-  margin-left: 4px;
 }
 .camera-dock {
   max-width: calc(100% - 24px);
