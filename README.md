@@ -63,6 +63,20 @@ without animation. Head movement bypasses steering sensitivity, inversion, and
 normalized deadzones. In Head camera those controls affect gaze only. Camera
 translation and the screen projection update together in physical units.
 
+**Your setup in 3D**, pinned beneath **Pick a perspective**, shows the applied
+head position, viewing area, and a bounding box for the model. Gold lines on the
+screen show the projected image. The distances and approximate **Size** percentage
+update in Head camera, including simulated input; paused or missing input holds
+the last applied position. Other modes show a labelled setup preview.
+
+With the defaults, the object's center is only **15 cm behind the screen**.
+Moving 10 cm toward the screen changes its center-plane image scale to about
+94%; moving 10 cm away gives about 105%. Distant background changes more strongly.
+This is the fixed-screen window effect: the physical screen occupies more of
+your vision as you approach it, while a behind-screen object's image can shrink
+slightly in screen pixels. The diagram exposes this geometry. Its size readout
+isolates head depth; gaze rotation can also change the model's visible outline.
+
 **Try simulated tracking** exercises the same input mapping and camera controls
 without a camera, including the animated reference dot. It is visibly labelled and is
 not a live tracking result.
@@ -137,6 +151,10 @@ not establish real webcam depth accuracy or the user's actual card measurement.
 Browser checks covered card resizing/confirmation, persistence across reload,
 the distance-estimate flow, and a scaled portrait stream whose approach reduced
 the reported viewing distance. Test calibration settings were cleared afterward.
+Overview tests compare the diagram's screen image with the actual camera projection
+under XYZ movement and a rotated screen frame, and check depth scale, held poses,
+rebasing, and a preview that leaves the main camera unchanged. The diagram's SVG
+was also rendered at closer, neutral, and farther positions for visual inspection.
 
 See [docs/research.md](docs/research.md) for sources and design decisions.
 
@@ -147,6 +165,8 @@ src/viewer.ts          GLB loading, lighting, animation, disposal, mouse control
 src/object-rotation.ts gaze-driven rotation of the centered model
 src/camera-rig.ts      orbit / fixed-position look / head-position camera behavior
 src/screen-window.ts   physically scaled XYZ view and fixed-plane off-axis projection
+src/spatial-geometry.ts  screen-space physical geometry and projected model bounds
+src/spatial-overview.ts  compact live 3D diagram of head, screen, and object
 src/tracking-math.ts   pose, iris geometry, neutral, guards, signal filtering
 src/reference-capture.ts  continuous one-second stability and reference capture
 src/tracker.ts         opt-in camera and worker lifecycle, one frame in flight

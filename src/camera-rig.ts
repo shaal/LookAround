@@ -10,7 +10,9 @@ import { clamp, type Signal } from "./tracking-math";
 import {
   DEFAULT_SCREEN_CALIBRATION,
   ScreenWindow,
+  viewportWidthCm,
   type ScreenCalibration,
+  type ScreenFrame,
   type ScreenViewport,
 } from "./screen-window";
 
@@ -109,6 +111,23 @@ export class CameraRig {
 
   get eyeDistanceCm() {
     return this.screenWindow.eyeDistanceCm;
+  }
+
+  get screenFrame(): ScreenFrame {
+    if (this.mode === "position") return this.screenWindow.frame;
+    // A clearly labelled preview of the setup before entering Head camera.
+    const widthCm = viewportWidthCm(this.screenCalibration, this.viewport);
+    return {
+      origin: this.camera.position.clone(),
+      orientation: this.camera.quaternion.clone(),
+      unitsPerCm:
+        Math.max(this.camera.position.distanceTo(this.target), 0.1) /
+        this.screenCalibration.objectDistanceCm,
+      widthCm,
+      heightCm: (widthCm * this.viewport.height) / this.viewport.width,
+      neutralDistanceCm: this.screenCalibration.eyeDistanceCm,
+      eye: new Vector3(0, 0, this.screenCalibration.eyeDistanceCm),
+    };
   }
 
   private applyOrbit() {

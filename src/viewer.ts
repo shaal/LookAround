@@ -26,6 +26,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CameraRig } from "./camera-rig";
 import { ObjectRotation } from "./object-rotation";
 import type { Signal } from "./tracking-math";
+import { boxCorners, spatialGeometry } from "./spatial-geometry";
 
 function disposeModel(root: Group) {
   const textures = new Set<Texture>();
@@ -54,6 +55,7 @@ export class Viewer {
   readonly rig = new CameraRig(this.camera);
   readonly renderer: WebGLRenderer;
   private model: Group | null = null;
+  private modelBounds = new Box3();
   private mixer: AnimationMixer | null = null;
   private objectRotation: ObjectRotation | null = null;
   private request = 0;
@@ -243,6 +245,7 @@ export class Viewer {
       disposeModel(this.model);
     }
     this.model = wrapper;
+    this.modelBounds.copy(box).translate(center.clone().negate());
     this.objectRotation = new ObjectRotation(wrapper.quaternion);
     this.scene.add(wrapper);
     this.mixer = gltf.animations.length ? new AnimationMixer(root) : null;
@@ -271,6 +274,16 @@ export class Viewer {
   resetView() {
     this.rig.reset();
     this.objectRotation?.reset();
+  }
+  get spatialGeometry() {
+    if (!this.model) return null;
+    this.model.updateWorldMatrix(true, false);
+    return spatialGeometry(
+      this.rig.screenFrame,
+      boxCorners(this.modelBounds.min, this.modelBounds.max).map((point) =>
+        point.applyMatrix4(this.model!.matrixWorld),
+      ),
+    );
   }
   render(signal: Signal | null, dt: number, eyeSignal: Signal | null = null) {
     this.rig.update(signal, dt);

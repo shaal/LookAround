@@ -36,92 +36,144 @@
 
     <main class="workspace">
       <aside class="library panel" aria-label="Model library">
-        <div class="section-heading">
-          <span class="eyebrow">01 / THE OBJECT</span
-          ><span class="count">4</span>
-        </div>
-        <h1>Pick a perspective.</h1>
-        <p class="muted intro">A few objects worth looking at.</p>
-        <div class="model-list" id="model-list">
-          <button
-            class="model-card selected"
-            data-model="DamagedHelmet"
-            aria-pressed="true"
+        <div class="library-content">
+          <div class="section-heading">
+            <span class="eyebrow">01 / THE OBJECT</span
+            ><span class="count">4</span>
+          </div>
+          <h1>Pick a perspective.</h1>
+          <p class="muted intro">A few objects worth looking at.</p>
+          <div class="model-list" id="model-list">
+            <button
+              class="model-card selected"
+              data-model="DamagedHelmet"
+              aria-pressed="true"
+            >
+              <span class="model-thumb helmet"
+                ><img src="/models/DamagedHelmet.png" alt="" /></span
+              ><span class="model-copy"
+                ><strong>Damaged helmet</strong
+                ><span>Weathered metal · PBR</span></span
+              ><span class="selection-indicator">↗</span>
+            </button>
+            <button
+              class="model-card"
+              data-model="BoomBox"
+              aria-pressed="false"
+            >
+              <span class="model-thumb boombox"
+                ><img src="/models/BoomBox.jpg" alt="" /></span
+              ><span class="model-copy"
+                ><strong>Boom box</strong
+                ><span>A little retro-futurism</span></span
+              ><span class="selection-indicator">↗</span>
+            </button>
+            <button
+              class="model-card"
+              data-model="Avocado"
+              aria-pressed="false"
+            >
+              <span class="model-thumb avocado"
+                ><img src="/models/Avocado.jpg" alt="" /></span
+              ><span class="model-copy"
+                ><strong>Avocado</strong
+                ><span>Something more organic</span></span
+              ><span class="selection-indicator">↗</span>
+            </button>
+            <button class="model-card" data-model="Duck" aria-pressed="false">
+              <span class="model-thumb duck"
+                ><img src="/models/Duck.png" alt="" /></span
+              ><span class="model-copy"
+                ><strong>The classic duck</strong
+                ><span>Small, yellow, iconic</span></span
+              ><span class="selection-indicator">↗</span>
+            </button>
+          </div>
+          <a
+            class="text-link browse-link"
+            href="https://github.khronos.org/glTF-Assets/"
+            target="_blank"
+            rel="noreferrer"
+            >Browse the Khronos collection <span>↗</span></a
           >
-            <span class="model-thumb helmet"
-              ><img src="/models/DamagedHelmet.png" alt="" /></span
-            ><span class="model-copy"
-              ><strong>Damaged helmet</strong
-              ><span>Weathered metal · PBR</span></span
-            ><span class="selection-indicator">↗</span>
-          </button>
-          <button class="model-card" data-model="BoomBox" aria-pressed="false">
-            <span class="model-thumb boombox"
-              ><img src="/models/BoomBox.jpg" alt="" /></span
-            ><span class="model-copy"
-              ><strong>Boom box</strong
-              ><span>A little retro-futurism</span></span
-            ><span class="selection-indicator">↗</span>
-          </button>
-          <button class="model-card" data-model="Avocado" aria-pressed="false">
-            <span class="model-thumb avocado"
-              ><img src="/models/Avocado.jpg" alt="" /></span
-            ><span class="model-copy"
-              ><strong>Avocado</strong><span>Something more organic</span></span
-            ><span class="selection-indicator">↗</span>
-          </button>
-          <button class="model-card" data-model="Duck" aria-pressed="false">
-            <span class="model-thumb duck"
-              ><img src="/models/Duck.png" alt="" /></span
-            ><span class="model-copy"
-              ><strong>The classic duck</strong
-              ><span>Small, yellow, iconic</span></span
-            ><span class="selection-indicator">↗</span>
-          </button>
-        </div>
-        <a
-          class="text-link browse-link"
-          href="https://github.khronos.org/glTF-Assets/"
-          target="_blank"
-          rel="noreferrer"
-          >Browse the Khronos collection <span>↗</span></a
-        >
 
-        <div class="library-divider"></div>
-        <span class="eyebrow">BRING YOUR OWN</span>
-        <button class="upload-zone" id="upload-button">
-          <span data-icon="upload"></span><strong>Drop a .glb here</strong
-          ><span>or click to choose a file</span>
-        </button>
-        <input
-          id="file-input"
-          type="file"
-          accept=".glb,model/gltf-binary"
-          hidden
-        />
-        <details class="url-details">
-          <summary>Load from a URL <span>+</span></summary>
-          <form id="url-form">
-            <label for="model-url">Direct GLB URL</label>
-            <div class="url-field">
-              <input
-                type="url"
-                id="model-url"
-                placeholder="https://…/model.glb"
-                required
-              /><button type="submit" aria-label="Load model URL">↗</button>
-            </div>
-            <p class="small muted">
-              The host must allow cross-origin downloads.
+          <div class="library-divider"></div>
+          <span class="eyebrow">BRING YOUR OWN</span>
+          <button class="upload-zone" id="upload-button">
+            <span data-icon="upload"></span><strong>Drop a .glb here</strong
+            ><span>or click to choose a file</span>
+          </button>
+          <input
+            id="file-input"
+            type="file"
+            accept=".glb,model/gltf-binary"
+            hidden
+          />
+          <details class="url-details">
+            <summary>Load from a URL <span>+</span></summary>
+            <form id="url-form">
+              <label for="model-url">Direct GLB URL</label>
+              <div class="url-field">
+                <input
+                  type="url"
+                  id="model-url"
+                  placeholder="https://…/model.glb"
+                  required
+                /><button type="submit" aria-label="Load model URL">↗</button>
+              </div>
+              <p class="small muted">
+                The host must allow cross-origin downloads.
+              </p>
+            </form>
+          </details>
+          <div class="library-footer">
+            <span class="tiny-cross">+</span>
+            <p>
+              No account. No uploads.<br />Your own models stay in this browser.
             </p>
-          </form>
-        </details>
-        <div class="library-footer">
-          <span class="tiny-cross">+</span>
-          <p>
-            No account. No uploads.<br />Your own models stay in this browser.
-          </p>
+          </div>
         </div>
+        <section
+          class="spatial-overview"
+          id="spatial-overview"
+          aria-labelledby="overview-title"
+          title="Estimated physical layout. The box represents the model; the screen represents the 3D viewing area."
+        >
+          <div class="overview-heading">
+            <h2 id="overview-title">Your setup in 3D</h2>
+            <span class="overview-state" data-overview-state>Loading</span>
+          </div>
+          <svg
+            viewBox="0 0 240 174"
+            role="img"
+            aria-label="3D diagram of your head, screen, and model"
+          ></svg>
+          <p class="overview-legend">Box = object · gold = image on screen</p>
+          <dl class="overview-measurements">
+            <div>
+              <dt>You → screen</dt>
+              <dd data-to-screen>—</dd>
+            </div>
+            <div>
+              <dt>You → object</dt>
+              <dd data-to-object>—</dd>
+            </div>
+          </dl>
+          <div class="overview-depth">
+            <span data-object-depth>Estimated distances</span>
+            <span
+              >Size
+              <strong
+                data-depth-scale
+                title="Approximate screen image size from head distance, measured at the object's center. 100% is the neutral eye distance. Gaze rotation can also change the outline."
+                >—</strong
+              ></span
+            >
+          </div>
+          <button id="overview-mode" class="overview-mode">
+            Use Head camera <span>↗</span>
+          </button>
+        </section>
       </aside>
 
       <section class="stage" id="stage" aria-label="3D viewer">

@@ -16,6 +16,17 @@ export interface ScreenViewport {
   pixelRatio?: number;
 }
 
+/** Physical screen coordinates: right +X, up +Y, toward the viewer +Z. */
+export interface ScreenFrame {
+  origin: Vector3;
+  orientation: Quaternion;
+  unitsPerCm: number;
+  widthCm: number;
+  heightCm: number;
+  neutralDistanceCm: number;
+  eye: Vector3;
+}
+
 export const DEFAULT_SCREEN_CALIBRATION: ScreenCalibration = {
   screenWidthCm: 70.8,
   eyeDistanceCm: 46,
@@ -148,5 +159,20 @@ export class ScreenWindow {
 
   get eyeDistanceCm() {
     return this.calibration.eyeDistanceCm + this.eye.z;
+  }
+
+  get frame(): ScreenFrame {
+    const widthCm = viewportWidthCm(this.calibration, this.viewport);
+    return {
+      origin: this.origin.clone(),
+      orientation: this.orientation.clone(),
+      unitsPerCm: this.unitsPerCm,
+      widthCm,
+      heightCm: (widthCm * this.viewport.height) / this.viewport.width,
+      neutralDistanceCm: this.calibration.eyeDistanceCm,
+      eye: this.eye
+        .clone()
+        .add(new Vector3(0, 0, this.calibration.eyeDistanceCm)),
+    };
   }
 }

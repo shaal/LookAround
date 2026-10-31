@@ -17,6 +17,7 @@ import {
 } from "./tracking-math";
 import type { ViewMode } from "./camera-rig";
 import { ReferenceCapture } from "./reference-capture";
+import { SpatialOverview, type OverviewState } from "./spatial-overview";
 import {
   BANK_CARD_WIDTH_CM,
   DEFAULT_SCREEN_CALIBRATION,
@@ -62,6 +63,8 @@ try {
   $("viewer-message").classList.add("error");
   throw error;
 }
+const spatialOverview = new SpatialOverview($("spatial-overview"));
+$("overview-mode").addEventListener("click", () => setMode("position"));
 
 const tracker = new FaceTracker($<HTMLVideoElement>("camera-video"));
 const overlay = $<HTMLCanvasElement>("face-overlay");
@@ -911,6 +914,23 @@ function animate(now: number) {
     viewer.render(signal, dt, eyeSignal);
   if (now >= nextHud) {
     nextHud = now + 100;
+    const overviewState: OverviewState =
+      viewer.rig.mode !== "position"
+        ? "Preview"
+        : reference.pending
+          ? "Centering"
+          : paused
+            ? "Paused"
+            : manual
+              ? "Mouse"
+              : inputMode === "off"
+                ? "Ready"
+                : !signal
+                  ? "Held"
+                  : inputMode === "simulation"
+                    ? "Simulated"
+                    : "Live";
+    spatialOverview.update(viewer.spatialGeometry, overviewState);
     $("estimate-distance").toggleAttribute(
       "disabled",
       inputMode !== "camera" || !tracker.active,

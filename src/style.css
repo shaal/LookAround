@@ -173,6 +173,99 @@ button[hidden],
   display: flex;
   flex-direction: column;
 }
+.library-content {
+  display: flex;
+  flex-direction: column;
+}
+.spatial-overview {
+  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 12px 10px 10px;
+  background: #16181d;
+  border: 1px solid #343840;
+  border-radius: 10px;
+}
+.overview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.overview-heading h2 {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+.overview-state {
+  color: #969eac;
+  font: 8px var(--mono);
+}
+.spatial-overview[data-state="live"] .overview-state {
+  color: #8ac5ae;
+}
+.spatial-overview[data-state="simulated"] .overview-state {
+  color: var(--accent);
+}
+.spatial-overview > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.overview-label {
+  font:
+    10px "DM Sans",
+    sans-serif;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #16181d;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.overview-legend {
+  font-size: 8px;
+  line-height: 1.5;
+  color: #8a939f;
+  text-align: center;
+}
+.overview-measurements {
+  margin: 10px 0 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.overview-measurements dt {
+  font-size: 9px;
+  color: #9aa2af;
+}
+.overview-measurements dd {
+  font: 13px var(--mono);
+  margin: 4px 0 0;
+}
+.overview-depth {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid #2c3038;
+  font-size: 8px;
+  color: #a5a7ad;
+}
+.overview-depth strong {
+  font: 9px var(--mono);
+  color: var(--accent);
+}
+.overview-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2c3038;
+  color: var(--accent);
+  font-size: 10px;
+}
 .section-heading {
   display: flex;
   align-items: center;
@@ -1581,6 +1674,28 @@ dialog > .text-link {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #45444b transparent;
+  }
+  .library {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .library-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #45444b transparent;
+  }
+  .library-content > * {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 740px) {
+  .spatial-overview {
+    width: 100%;
+    max-width: 330px;
+    align-self: flex-end;
   }
 }
 
