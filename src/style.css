@@ -1584,8 +1584,7 @@ dialog > .text-link {
   }
 }
 
-/* The explicit reference is centered on the whole visible screen, rather than
-   on a sidebar or an object that may move. The button itself is the target. */
+/* Keep the animated reference centered on the whole visible screen. */
 .reference-dialog {
   position: fixed;
   inset: 0;
@@ -1608,7 +1607,7 @@ dialog > .text-link {
 .reference-heading {
   position: absolute;
   left: 50%;
-  top: calc(50% - 228px);
+  top: calc(50% - 170px);
   width: min(520px, calc(100% - 32px));
   transform: translateX(-50%);
   text-align: center;
@@ -1619,10 +1618,8 @@ dialog > .text-link {
   letter-spacing: -1.1px;
   margin: 20px 0 12px;
 }
-.reference-heading p {
-  color: #aba9ac;
-  font-size: 13px;
-  line-height: 1.7;
+#reference-label:empty {
+  display: none;
 }
 .reference-dot {
   position: absolute;
@@ -1632,16 +1629,17 @@ dialog > .text-link {
   width: 144px;
   height: 144px;
   border-radius: 50%;
-  border: 2px solid #f3d2a4;
-  background: #e9bb82;
-  box-shadow:
-    0 0 0 13px #e9bb8210,
-    0 0 0 30px #e9bb8207,
-    0 0 90px #e9bb8220;
+  --reference-color: #e5837d;
+  color: var(--reference-color);
+  border: 2px solid currentColor;
+  background: var(--reference-color);
+  box-shadow: 0 0 75px
+    color-mix(in srgb, var(--reference-color) 20%, transparent);
   display: grid;
   place-items: center;
   transition:
-    opacity 0.2s,
+    background 0.2s,
+    color 0.2s,
     box-shadow 0.2s;
 }
 .reference-dot span {
@@ -1652,20 +1650,37 @@ dialog > .text-link {
   box-shadow: 0 0 18px #fff6d266;
   pointer-events: none;
 }
-.reference-dot[aria-disabled="true"] {
-  opacity: 0.45;
-  cursor: wait;
+.reference-dot[data-state="holding"],
+.reference-dot[data-state="complete"] {
+  --reference-color: #8ccc9d;
 }
-.reference-dot[aria-disabled="false"]:hover {
-  background: #f2ca93;
+.reference-ring {
+  position: absolute;
+  width: calc(100% + 36px);
+  height: calc(100% + 36px);
+  inset: -18px;
+  overflow: visible;
+  transform: rotate(-90deg);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+}
+.reference-ring-track {
+  opacity: 0.15;
+}
+.reference-ring-progress {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.reference-dot[data-state="moving"] .reference-ring-progress {
+  transition: none;
+}
+.reference-dot[data-state="complete"] {
   box-shadow:
-    0 0 0 13px #e9bb8219,
-    0 0 0 30px #e9bb820d,
-    0 0 100px #e9bb8230;
-}
-.reference-dot:focus-visible {
-  outline: 2px solid #fff4dd;
-  outline-offset: 20px;
+    0 0 0 8px #8ccc9d12,
+    0 0 90px #8ccc9d30;
 }
 .reference-caption {
   position: absolute;
@@ -1675,24 +1690,11 @@ dialog > .text-link {
   transform: translateX(-50%);
   text-align: center;
 }
-.reference-caption strong {
-  color: #e8d8c3;
-  font-size: 14px;
-  font-weight: 500;
-}
 .reference-caption p {
-  margin-top: 13px;
+  margin: 0;
   color: #9d9aa1;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
-}
-.reference-local {
-  display: block;
-  margin: 27px auto 0;
-  color: #74727d;
-  font-size: 10px;
-  line-height: 1.7;
-  max-width: 310px;
 }
 .reference-cancel {
   position: absolute;
@@ -1763,20 +1765,14 @@ dialog > .text-link {
   .reference-heading h2 {
     font-size: 30px;
   }
-  .reference-caption strong {
-    font-size: 13px;
-  }
 }
 @media (max-height: 580px) {
   .reference-heading {
-    top: calc(50% - 185px);
+    top: calc(50% - 140px);
   }
   .reference-heading h2 {
     font-size: 26px;
     margin: 12px 0 7px;
-  }
-  .reference-heading p {
-    font-size: 11px;
   }
   .reference-dot {
     width: 108px;
@@ -1784,8 +1780,5 @@ dialog > .text-link {
   }
   .reference-caption {
     top: calc(50% + 85px);
-  }
-  .reference-local {
-    margin-top: 12px;
   }
 }

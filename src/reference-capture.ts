@@ -5,7 +5,7 @@ import {
   type Sample,
 } from "./tracking-math";
 
-/** Observing frames never sets neutral. Only a deliberate accept() may do so. */
+/** One continuous second of fresh, still head and eye samples sets neutral. */
 export class ReferenceCapture {
   pending = false;
   private samples: Sample[] = [];
@@ -25,31 +25,42 @@ export class ReferenceCapture {
       this.samples = [];
       return;
     }
-    this.samples = this.samples.filter((s) => s.timestamp >= now - 550);
     const last = this.samples.at(-1);
     if (last && sample.timestamp - last.timestamp > 250) this.samples = [];
-    if (!last || last.timestamp < sample.timestamp) this.samples.push(sample);
+    if (last && last.timestamp >= sample.timestamp) return;
+    const anchor = this.samples[0];
+    const depth = Math.abs(sample.position.z);
+    if (depth < 1e-3) {
+      this.samples = [];
+      return;
+    }
+    if (
+      anchor &&
+      (sample.rotation.angleTo(anchor.rotation) > 0.055 ||
+        sample.position.distanceTo(anchor.position) / depth > 0.015 ||
+        Math.abs(sample.eyeX - anchor.eyeX) > 0.035 ||
+        Math.abs(sample.eyeY - anchor.eyeY) > 0.025)
+    )
+      this.samples = [];
+    this.samples.push(sample);
   }
 
-  readiness(now: number): "missing" | "settling" | "moving" | "ready" {
+  readiness(now: number): "missing" | "moving" | "holding" | "ready" {
     const latest = this.samples.at(-1);
     if (!this.pending || !isFresh(latest ?? null, now)) return "missing";
-    if (
-      this.samples.length < 3 ||
-      latest!.timestamp - this.samples[0].timestamp < 100
-    )
-      return "settling";
-    const depth = Math.abs(latest!.position.z);
-    if (
-      depth < 1e-3 ||
-      this.samples.some(
-        (s) =>
-          s.rotation.angleTo(latest!.rotation) > 0.075 ||
-          s.position.distanceTo(latest!.position) / depth > 0.025,
-      )
-    )
-      return "moving";
-    return "ready";
+    if (this.samples.length < 2) return "moving";
+    return latest!.timestamp - this.samples[0].timestamp >= 1000
+      ? "ready"
+      : "holding";
+  }
+
+  progress(now: number): number {
+    const state = this.readiness(now);
+    if (state === "missing" || state === "moving") return 0;
+    return Math.min(
+      1,
+      (this.samples.at(-1)!.timestamp - this.samples[0].timestamp) / 1000,
+    );
   }
 
   accept(now: number): Neutral | null {

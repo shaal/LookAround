@@ -77,18 +77,21 @@ There is no automatic wink/blink mode switch: ordinary blinks should not change
 the interaction. Buttons and keys `1` / `2` / `3` switch modes explicitly. Mouse
 input acts as a clutch that preserves the camera pose with a separate rig anchor;
 it never overwrites the explicit neutral. Lost/stale input freezes movement,
-and reacquisition reopens the center dot for an explicit click.
+and reacquisition reopens the center dot for another stable one-second hold.
 
-## Click-to-set reference
+## Animated reference
 
 The initial reference is now a large, fixed dot centered on the whole visible
-screen. Starting the camera (or simulation) opens it; observing stable frames
-never accepts it automatically. The user looks at the dot and clicks it to
-capture head position, orientation, and iris offsets together. A short rolling
-window provides position/iris medians and a hemisphere-corrected quaternion
-average. Acceptance requires fresh data, open eyes, and stable samples. Stopping
-or failing the camera clears the pending session. `C` reopens the dot; face loss
-and tab suspension also require a deliberate click when tracking returns.
+screen. Starting the camera (or simulation) opens it. The dot is red while moving
+or missing valid input, then green during a continuous one-second hold. A circular
+progress stroke fills from observed capture timestamps. Head rotation, translation,
+iris movement, blinking, stale input, or a frame gap resets the hold. Motion is
+compared against the beginning of the hold so slow drift cannot accumulate credit.
+Completion automatically captures head position, orientation, and iris offsets
+together, with a brief completed-ring animation. Samples provide position/iris
+medians and a hemisphere-corrected quaternion average. Stopping or failing the
+camera clears the session. `C`, face loss, and tab suspension reopen the same flow.
+This checks stable visible eyes, not a calibrated proof of gaze at the dot.
 
 The covered 3D scene is frozen while the dot is open, both to keep the visual
 reference steady and to avoid competing with face inference during calibration.
@@ -106,7 +109,7 @@ separates rotation and translation. The new **Head camera** mode uses translatio
 from matrix elements 12–14, independently of the head quaternion. Translation is
 still an estimate, not a measurement of physical travel in calibrated centimeters.
 
-Subtract the clicked reference's position and divide XY displacement by the
+Subtract the captured reference's position and divide XY displacement by the
 **fixed neutral depth**. This is a practical interaction mapping inferred from
 the coordinate system, not an upstream recommendation. Using current depth would
 make the gain change when leaning forward. Map the result to bounded local camera

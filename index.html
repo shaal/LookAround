@@ -379,35 +379,37 @@
       id="reference-dialog"
       class="reference-dialog"
       aria-labelledby="reference-title"
-      aria-describedby="reference-description"
+      aria-describedby="reference-status"
     >
       <div class="reference-heading">
-        <span class="eyebrow" id="reference-label">LET’S FIND YOUR CENTER</span>
-        <h2 id="reference-title">Look at this dot.</h2>
-        <p id="reference-description">
-          Face the screen comfortably.<br />Keep looking at the dot, then click
-          it.
-        </p>
+        <span class="eyebrow" id="reference-label"></span>
+        <h2 id="reference-title">Look here.</h2>
       </div>
-      <button
+      <div
         id="reference-dot"
         class="reference-dot"
-        type="button"
-        aria-label="Set neutral at the center dot"
-        aria-disabled="true"
-        autofocus
+        role="progressbar"
+        aria-label="Hold still for one second to set neutral"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        data-state="moving"
       >
+        <svg class="reference-ring" viewBox="0 0 180 180" aria-hidden="true">
+          <circle class="reference-ring-track" cx="90" cy="90" r="82" />
+          <circle
+            id="reference-progress"
+            class="reference-ring-progress"
+            cx="90"
+            cy="90"
+            r="82"
+            pathLength="1"
+          />
+        </svg>
         <span></span>
-      </button>
+      </div>
       <div class="reference-caption">
-        <strong>Click to set your neutral position</strong>
-        <p id="reference-status" role="status" aria-live="polite">
-          Waiting for your camera…
-        </p>
-        <span class="reference-local"
-          >This sets your starting point for head movement and eye
-          direction.</span
-        >
+        <p id="reference-status" role="status" aria-live="polite">Hold still</p>
       </div>
       <button id="reference-cancel" class="reference-cancel" type="button">
         Stop camera
@@ -424,8 +426,8 @@
       <h2>A turn of the head.<br />A change of perspective.</h2>
       <p>
         Choose a sample or drop your own GLB, enable the camera, then face
-        forward and look at the large center dot. Click the dot to set your
-        starting position. Tracking stays still until you do.
+        forward and look at the dot. Hold still for one second while the green
+        ring fills to set your starting position.
       </p>
       <div class="help-mode">
         <span data-icon="orbit"></span>
@@ -467,7 +469,7 @@
       <p class="muted small">
         Drag or scroll takes manual control. Space pauses movement. C sets a new
         neutral by reopening the dot without resetting the view. Lost tracking
-        freezes the camera; returning to the camera asks you to click the dot
+        freezes the camera; returning to the camera asks you to hold still
         again. Nothing is recorded or uploaded.
       </p>
       <a

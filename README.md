@@ -23,9 +23,9 @@ Google Fonts is optional; system fonts are used if unavailable.
 
 1. Choose a sample, drop a local `.glb`, or enter a direct, CORS-enabled model URL.
 2. Click **Enable camera**, allow access, and look at the large dot in the middle
-   of the screen. **Click the dot to set neutral.** It becomes ready after a few
-   clear, stable face samples. Nothing moves until you click. That click sets
-   the starting head position, orientation, and eye direction together.
+   of the screen. **Hold still for one second.** The red dot turns green and a
+   ring fills while your head and eyes stay steady. Movement resets it. Completing
+   the ring automatically sets head position, orientation, and eye direction.
 3. Start with **Head** and **Orbit object**. Turn a little to orbit continuously;
    face neutral to stop. A modest held turn can make a complete 360° orbit.
 4. Switch to **Look around** to keep the camera position fixed and turn its view
@@ -40,7 +40,7 @@ Google Fonts is optional; system fonts are used if unavailable.
    holds the angle while valid head-position input continues to move the camera.
 
 **Try simulated tracking** exercises the same input mapping and camera controls
-without a camera, including the click-to-set dot. It is visibly labelled and is
+without a camera, including the animated reference dot. It is visibly labelled and is
 not a live tracking result.
 
 ## Controls
@@ -59,7 +59,7 @@ not a live tracking result.
 | Invert horizontal | Reverse horizontal steering for camera conventions/preferences |
 
 Camera loss or a sample older than 250 ms freezes movement immediately. Returning
-after face loss reopens the center dot and requires another click. Hidden tabs stop sending
+after face loss reopens the center dot for another one-second hold. Hidden tabs stop sending
 inference frames. Stopping the camera releases media tracks and terminates the
 worker. Mouse dragging, mode switching, and pause/resume anchor the view without
 silently replacing the reference chosen at the dot. Frames and landmarks are not
@@ -96,8 +96,9 @@ npm run preview  # serve the production build on port 5174 (stop dev first)
 Browser validation covered the four models, remote URL import, local file import,
 the camera modes, simulation, pause, missing-camera handling, and responsive
 layout. A portrait image supplied as a test video stream exercised the real
-MediaPipe worker, explicit dot acceptance, face loss/reacquisition with another
-required click, and camera teardown. Synthetic tests check that rotation alone
+MediaPipe worker, reference capture, face loss/reacquisition, and camera teardown.
+Timing tests check the one-second hold and resets for head/eye motion, blinks,
+missing/stale frames, and slow drift. Other synthetic tests check that rotation alone
 doesn't drive translation, held positions don't drift, and eye rotation doesn't
 change the translation axes.
 That verifies the software path, not live tracking comfort or accuracy. Default
@@ -112,7 +113,7 @@ See [docs/research.md](docs/research.md) for sources and design decisions.
 src/viewer.ts          GLB loading, lighting, animation, disposal, mouse controls
 src/camera-rig.ts      orbit / fixed-position look / head-position camera behavior
 src/tracking-math.ts   pose, iris geometry, neutral, guards, signal filtering
-src/reference-capture.ts  explicit dot acceptance and a stable sample window
+src/reference-capture.ts  continuous one-second stability and reference capture
 src/tracker.ts         opt-in camera and worker lifecycle, one frame in flight
 src/main.ts            UI and input state, calibration, simulation
 public/vision-worker.js  classic worker running local MediaPipe inference

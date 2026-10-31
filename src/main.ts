@@ -82,6 +82,7 @@ let inferenceMs = 0,
 let loadGeneration = 0,
   toastTimer: ReturnType<typeof setTimeout>;
 let inputGeneration = 0;
+let referenceCompleteAt: number | null = null;
 
 function toast(message: string) {
   $("toast").textContent = message;
@@ -166,38 +167,52 @@ function calibrate() {
   clearMotion();
   neutral = null;
   reference.begin();
+  referenceCompleteAt = null;
   const dialog = $<HTMLDialogElement>("reference-dialog");
   if (!dialog.open) dialog.showModal();
   $("reference-label").textContent =
-    inputMode === "simulation"
-      ? "SIMULATED INPUT · NO CAMERA"
-      : "LET’S FIND YOUR CENTER";
+    inputMode === "simulation" ? "SIMULATED INPUT · NO CAMERA" : "";
   $("reference-cancel").textContent =
     inputMode === "simulation" ? "Stop simulation" : "Stop camera";
-  $("reference-dot").setAttribute("aria-disabled", "true");
-  $("reference-status").textContent = "Waiting for a clear view of your face…";
-  status("Look at the large center dot and click it to set neutral.");
+  $("reference-dot").dataset.state = "moving";
+  $("reference-dot").setAttribute("aria-valuenow", "0");
+  $("reference-progress").style.strokeDashoffset = "1";
+  $("reference-status").textContent = "Hold still";
+  status("Look at the dot and hold still for one second.");
 }
 
 function closeReference() {
   reference.cancel();
+  referenceCompleteAt = null;
   $<HTMLDialogElement>("reference-dialog").close();
 }
 
 function updateReference(now: number) {
   if (!reference.pending) return;
-  const ready = reference.readiness(now);
-  $("reference-dot").setAttribute("aria-disabled", String(ready !== "ready"));
+  const state = reference.readiness(now);
+  const progress = reference.progress(now);
+  $("reference-dot").dataset.state =
+    state === "ready" ? "complete" : state === "holding" ? "holding" : "moving";
+  $("reference-dot").setAttribute(
+    "aria-valuenow",
+    String(Math.round(progress * 100)),
+  );
+  $("reference-progress").style.strokeDashoffset = String(1 - progress);
   $("reference-status").textContent =
-    ready === "ready"
-      ? "Ready. Keep looking here and click the dot."
-      : ready === "moving"
-        ? "Keep your head comfortably still for a moment."
-        : ready === "settling"
-          ? "Finding your center…"
-          : inputMode === "simulation"
-            ? "Preparing the simulated reference…"
-            : "Waiting for a fresh face with both eyes visible…";
+    state === "missing"
+      ? "Find your face"
+      : state === "moving"
+        ? "Hold still"
+        : state === "holding"
+          ? "Keep looking"
+          : "Ready";
+  if (state !== "ready") {
+    referenceCompleteAt = null;
+    return;
+  }
+  // Let the completed ring remain visible before returning to the model.
+  referenceCompleteAt ??= now;
+  if (now - referenceCompleteAt >= 250) finishReference(now);
 }
 
 function updateButtons() {
@@ -358,12 +373,9 @@ $("simulation-button").addEventListener("click", () => {
   calibrate();
 });
 
-$("reference-dot").addEventListener("click", () => {
-  const value = reference.accept(performance.now());
-  if (!value) {
-    updateReference(performance.now());
-    return;
-  }
+function finishReference(now: number) {
+  const value = reference.accept(now);
+  if (!value) return;
   neutral = value;
   viewer.rig.freeze();
   viewer.rig.rebase();
@@ -378,8 +390,8 @@ $("reference-dot").addEventListener("click", () => {
         ? "Simulated movement. No webcam in use."
         : "Neutral set. Move comfortably to explore.",
   );
-  toast("Neutral set — this is your starting point.");
-});
+  referenceCompleteAt = null;
+}
 $("reference-cancel").addEventListener("click", stopInput);
 $<HTMLDialogElement>("reference-dialog").addEventListener("cancel", (event) => {
   event.preventDefault();
