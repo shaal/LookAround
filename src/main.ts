@@ -17,6 +17,11 @@ import {
 } from "./tracking-math";
 import type { ViewMode } from "./camera-rig";
 import { ReferenceCapture } from "./reference-capture";
+import {
+  BANK_CARD_WIDTH_CM,
+  DEFAULT_SCREEN_CALIBRATION,
+  type ScreenCalibration,
+} from "./screen-window";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
@@ -72,6 +77,9 @@ const reference = new ReferenceCapture();
 let filtered: Signal = { x: 0, y: 0 };
 let filteredEyes: Signal = { x: 0, y: 0 };
 let eyeRotation = true;
+let screenCalibration = restoreScreenCalibration();
+let trackingCmPerPoseUnit: number | null = null;
+let neutralEyeDistanceCm = screenCalibration.eyeDistanceCm;
 let sensitivity = 1,
   smoothing = 0.45,
   deadZone = 0.12,
@@ -83,6 +91,77 @@ let loadGeneration = 0,
   toastTimer: ReturnType<typeof setTimeout>;
 let inputGeneration = 0;
 let referenceCompleteAt: number | null = null;
+let estimateDistanceOnReference = false;
+viewer.rig.configureScreen(screenCalibration);
+syncScreenCalibrationFields();
+
+function restoreScreenCalibration(): ScreenCalibration {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem("parallax-screen-calibration") ?? "null",
+    );
+    if (
+      !saved ||
+      ![
+        saved.calibration?.screenWidthCm,
+        saved.calibration?.eyeDistanceCm,
+        saved.calibration?.objectDistanceCm,
+      ].every((v) => Number.isFinite(v) && v > 0)
+    )
+      return { ...DEFAULT_SCREEN_CALIBRATION };
+    const calibration: ScreenCalibration = { ...saved.calibration };
+    if (
+      saved.displayWidth !== window.screen.width ||
+      saved.displayHeight !== window.screen.height ||
+      !Number.isFinite(calibration.pixelsPerCm) ||
+      !Number.isFinite(calibration.calibrationPixelRatio) ||
+      (calibration.pixelsPerCm ?? 0) <= 0 ||
+      (calibration.calibrationPixelRatio ?? 0) <= 0
+    ) {
+      delete calibration.pixelsPerCm;
+      delete calibration.calibrationPixelRatio;
+    }
+    return calibration;
+  } catch {
+    return { ...DEFAULT_SCREEN_CALIBRATION };
+  }
+}
+
+function syncScreenCalibrationFields() {
+  $<HTMLInputElement>("screen-width").value =
+    screenCalibration.screenWidthCm.toFixed(1);
+  $<HTMLInputElement>("eye-distance").value =
+    screenCalibration.eyeDistanceCm.toFixed(0);
+  $<HTMLInputElement>("object-distance").value =
+    screenCalibration.objectDistanceCm.toFixed(0);
+  $("calibration-summary").textContent =
+    `${screenCalibration.pixelsPerCm ? "Card-matched screen" : "Screen size estimate"} · ~${screenCalibration.eyeDistanceCm.toFixed(0)} cm to screen`;
+}
+
+function applyScreenCalibration() {
+  trackingCmPerPoseUnit = null;
+  neutralEyeDistanceCm = screenCalibration.eyeDistanceCm;
+  viewer.rig.configureScreen(screenCalibration);
+  syncScreenCalibrationFields();
+  saveScreenCalibration();
+  rebase();
+  if (inputMode !== "off") calibrate();
+}
+
+function saveScreenCalibration() {
+  try {
+    localStorage.setItem(
+      "parallax-screen-calibration",
+      JSON.stringify({
+        calibration: screenCalibration,
+        displayWidth: window.screen.width,
+        displayHeight: window.screen.height,
+      }),
+    );
+  } catch {
+    /* Calibration still works without storage. */
+  }
+}
 
 function toast(message: string) {
   $("toast").textContent = message;
@@ -116,14 +195,20 @@ function setMode(mode: ViewMode) {
       ? "Turn a little. Keep orbiting. Return to center to stop."
       : mode === "look"
         ? "Stay in one spot. Turn your head to look left, right, up, or down."
-        : "Slide your head sideways or up/down. Your camera moves with you.";
+        : "Move sideways, up/down, closer or farther. The screen stays fixed.";
+  $("sensitivity-label").textContent =
+    mode === "position" ? "Gaze sensitivity" : "Sensitivity";
+  $("deadzone-label").textContent =
+    mode === "position" ? "Gaze dead zone" : "Center dead zone";
+  $("invert-label").textContent =
+    mode === "position" ? "Invert gaze horizontal" : "Invert horizontal";
 }
 
 function commands(now = performance.now()) {
   return {
     movement:
       viewer.rig.mode === "position"
-        ? positionSignal(sample, neutral, now, sensitivity, deadZone, invert)
+        ? positionSignal(sample, neutral, now, neutralEyeDistanceCm)
         : controlSignal(
             sample,
             neutral,
@@ -162,6 +247,11 @@ function rebase() {
 
 function calibrate() {
   if (inputMode === "off") return;
+  estimateDistanceOnReference = false;
+  // A new camera session starts at the configured neutral viewing distance.
+  // Later reference holds preserve the fixed screen frame and tracking scale.
+  if (trackingCmPerPoseUnit === null && viewer.rig.mode === "position")
+    viewer.rig.configureScreen(screenCalibration);
   viewer.rig.freeze();
   viewer.rebase();
   clearMotion();
@@ -183,6 +273,7 @@ function calibrate() {
 
 function closeReference() {
   reference.cancel();
+  estimateDistanceOnReference = false;
   referenceCompleteAt = null;
   $<HTMLDialogElement>("reference-dialog").close();
 }
@@ -247,6 +338,7 @@ function updateButtons() {
 function stopInput() {
   inputGeneration++;
   inputMode = "off";
+  trackingCmPerPoseUnit = null;
   tracker.stop();
   sample = null;
   neutral = null;
@@ -376,7 +468,25 @@ $("simulation-button").addEventListener("click", () => {
 function finishReference(now: number) {
   const value = reference.accept(now);
   if (!value) return;
+  if (estimateDistanceOnReference) {
+    const estimate = Math.abs(value.position.z);
+    if (Number.isFinite(estimate) && estimate >= 15 && estimate <= 200) {
+      screenCalibration = {
+        ...screenCalibration,
+        eyeDistanceCm: Math.round(estimate),
+      };
+      trackingCmPerPoseUnit = null;
+      viewer.rig.configureScreen(screenCalibration);
+      syncScreenCalibrationFields();
+      saveScreenCalibration();
+    }
+    estimateDistanceOnReference = false;
+  }
   neutral = value;
+  trackingCmPerPoseUnit ??=
+    screenCalibration.eyeDistanceCm /
+    Math.max(Math.abs(value.position.z), 1e-3);
+  neutralEyeDistanceCm = Math.abs(value.position.z) * trackingCmPerPoseUnit;
   viewer.rig.freeze();
   viewer.rebase();
   clearMotion();
@@ -452,6 +562,91 @@ document
 $("mode-orbit").addEventListener("click", () => setMode("orbit"));
 $("mode-look").addEventListener("click", () => setMode("look"));
 $("mode-position").addEventListener("click", () => setMode("position"));
+$("screen-calibration-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const previousWidth = screenCalibration.screenWidthCm;
+  screenCalibration = {
+    ...screenCalibration,
+    screenWidthCm: Number($<HTMLInputElement>("screen-width").value),
+    eyeDistanceCm: Number($<HTMLInputElement>("eye-distance").value),
+    objectDistanceCm: Number($<HTMLInputElement>("object-distance").value),
+  };
+  if (Math.abs(screenCalibration.screenWidthCm - previousWidth) > 0.05) {
+    delete screenCalibration.pixelsPerCm;
+    delete screenCalibration.calibrationPixelRatio;
+  }
+  applyScreenCalibration();
+  toast("Screen calibration applied");
+});
+$("estimate-distance").addEventListener("click", () => {
+  if (inputMode !== "camera" || !tracker.active) return;
+  calibrate();
+  estimateDistanceOnReference = true;
+});
+
+function resizeCardOutline(width: number) {
+  const range = $<HTMLInputElement>("card-size");
+  range.value = String(
+    Math.max(Number(range.min), Math.min(Number(range.max), width)),
+  );
+  $("card-outline").style.width = `${range.value}px`;
+}
+$("match-card").addEventListener("click", () => {
+  const range = $<HTMLInputElement>("card-size");
+  range.max = String(
+    Math.max(
+      100,
+      Math.min(
+        500,
+        innerWidth - 112,
+        ((innerHeight * 0.42 - 20) * 8.56) / 5.398,
+      ),
+    ),
+  );
+  const pxPerCm = screenCalibration.pixelsPerCm
+    ? (screenCalibration.pixelsPerCm *
+        (screenCalibration.calibrationPixelRatio ?? devicePixelRatio)) /
+      devicePixelRatio
+    : window.screen.width / screenCalibration.screenWidthCm;
+  resizeCardOutline(BANK_CARD_WIDTH_CM * pxPerCm);
+  viewer.rig.freeze();
+  $<HTMLDialogElement>("card-dialog").showModal();
+});
+$<HTMLInputElement>("card-size").addEventListener("input", (event) =>
+  resizeCardOutline(Number((event.target as HTMLInputElement).value)),
+);
+$("close-card").addEventListener("click", () => {
+  $<HTMLDialogElement>("card-dialog").close();
+  rebase();
+});
+$<HTMLDialogElement>("card-dialog").addEventListener("cancel", () => rebase());
+$("confirm-card").addEventListener("click", () => {
+  screenCalibration = {
+    ...screenCalibration,
+    pixelsPerCm:
+      $("card-outline").getBoundingClientRect().width / BANK_CARD_WIDTH_CM,
+    calibrationPixelRatio: devicePixelRatio,
+  };
+  $<HTMLDialogElement>("card-dialog").close();
+  applyScreenCalibration();
+  toast("Screen size calibrated");
+});
+let cardDrag: { x: number; width: number } | null = null;
+$("card-resize-handle").addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  cardDrag = {
+    x: event.clientX,
+    width: $("card-outline").getBoundingClientRect().width,
+  };
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+});
+$("card-resize-handle").addEventListener("pointermove", (event) => {
+  if (cardDrag) resizeCardOutline(cardDrag.width + event.clientX - cardDrag.x);
+});
+for (const event of ["pointerup", "pointercancel", "lostpointercapture"])
+  $("card-resize-handle").addEventListener(event, () => {
+    cardDrag = null;
+  });
 $<HTMLInputElement>("eye-rotation").addEventListener("change", (event) => {
   eyeRotation = (event.target as HTMLInputElement).checked;
   rebase();
@@ -639,6 +834,7 @@ document.addEventListener("keydown", (event) => {
     event.target instanceof HTMLSelectElement ||
     $<HTMLDialogElement>("help-dialog").open ||
     $<HTMLDialogElement>("reference-dialog").open ||
+    $<HTMLDialogElement>("card-dialog").open ||
     event.ctrlKey ||
     event.metaKey ||
     event.altKey ||
@@ -677,7 +873,7 @@ function animate(now: number) {
       position: new Vector3(
         -Math.sin(t * 0.5) * 7.2,
         Math.sin(t * 0.4) * 3,
-        -60,
+        -60 + Math.sin(t * 0.32) * 10,
       ),
       eyeX: -Math.sin(t * 0.8) * 0.07,
       eyeY: Math.sin(t * 0.6) * 0.025,
@@ -691,12 +887,18 @@ function animate(now: number) {
     !manual &&
     !document.hidden &&
     !reference.pending &&
+    !$<HTMLDialogElement>("card-dialog").open &&
     inputMode !== "off";
   const raw = allowed ? commands(now) : { movement: null, eyes: null };
   let signal = raw.movement;
   let eyeSignal = raw.eyes;
   if (signal) {
-    filtered = smoothSignal(filtered, signal, dt, smoothing);
+    filtered = smoothSignal(
+      filtered,
+      signal,
+      dt,
+      viewer.rig.mode === "position" ? Math.min(smoothing, 0.15) : smoothing,
+    );
     signal = filtered;
   } else if (viewer.rig.mode === "orbit") filtered = { x: 0, y: 0 };
   if (eyeSignal) {
@@ -705,9 +907,14 @@ function animate(now: number) {
   }
   // The reference overlay covers the scene. Keep its pose (and GPU work)
   // frozen so sampling the neutral isn't competing with 3D rendering.
-  if (!reference.pending) viewer.render(signal, dt, eyeSignal);
+  if (!reference.pending && !$<HTMLDialogElement>("card-dialog").open)
+    viewer.render(signal, dt, eyeSignal);
   if (now >= nextHud) {
     nextHud = now + 100;
+    $("estimate-distance").toggleAttribute(
+      "disabled",
+      inputMode !== "camera" || !tracker.active,
+    );
     updateReference(now);
     if (
       inputMode === "camera" &&
@@ -720,8 +927,11 @@ function animate(now: number) {
       status("Tracking delayed. Movement is held until a fresh frame arrives.");
     const x = signal?.x ?? 0,
       y = signal?.y ?? 0;
-    $("signal-dot").style.left = `${50 + x * 40}%`;
-    $("signal-dot").style.top = `${50 + y * 40}%`;
+    const monitorScale = viewer.rig.mode === "position" ? 10 : 1;
+    $("signal-dot").style.left =
+      `${50 + Math.max(-1, Math.min(1, x / monitorScale)) * 40}%`;
+    $("signal-dot").style.top =
+      `${50 + Math.max(-1, Math.min(1, y / monitorScale)) * 40}%`;
     const direction =
       Math.abs(x) < 0.03 && Math.abs(y) < 0.03
         ? "Centered"
@@ -738,12 +948,12 @@ function animate(now: number) {
           ? "Waiting for input"
           : isFresh(sample, now)
             ? viewer.rig.mode === "position"
-              ? `${inferenceMs.toFixed(0)} ms inference · head position`
+              ? `${viewer.rig.eyeDistanceCm.toFixed(0)} cm to screen · estimated`
               : `${inferenceMs.toFixed(0)} ms inference · ${Math.round((relativeAngles(sample.rotation, neutral?.rotation ?? sample.rotation).x * 180) / Math.PI)}° yaw`
             : "Waiting for face";
     $("view-angle").textContent =
       viewer.rig.mode === "position"
-        ? "HEAD CAMERA · XY"
+        ? "HEAD CAMERA · XYZ"
         : `${String(Math.round(viewer.rig.azimuth)).padStart(3, "0")}° ${viewer.rig.mode === "orbit" ? "AZIMUTH" : "LOOK MODE"}`;
     $("stage").dataset.mode = viewer.rig.mode;
     $("stage").dataset.input = inputMode;

@@ -33,12 +33,35 @@ Google Fonts is optional; system fonts are used if unavailable.
 5. **Eyes** uses rough iris direction; **Both** adds a small eye-direction assist
    to head steering. These are experimental, not calibrated screen-gaze tracking.
    For eyes, hold your head still and look at the viewport center during capture.
-6. **Head camera** (`3`) uses head **position**, not head rotation. Slide sideways
-   or up/down to move the camera. Holding a position holds the camera there;
-   returning to the reference returns its position. Depth movement is excluded.
+6. **Head camera** (`3`) uses physical head **position**, including sideways,
+   up/down, and closer/farther movement. An off-axis projection keeps the virtual
+   display plane fixed, giving the effect of looking through a window. Holding a
+   head position holds the camera there.
    **Gaze rotates object** is enabled by default: eyes rotate the model around its
    center while head position moves the camera. Eye loss/blinking holds the model
    angle. You can switch gaze rotation off independently.
+
+### Simple physical setup
+
+Head camera starts with the requested **32-inch 16:9 screen preset** (70.8 cm wide)
+and approximately **46 cm eyes-to-screen distance** (1.5 feet). The initial object
+distance is 61 cm, roughly two feet. These are estimates, not detected hardware.
+
+- **Match a bank card:** hold a standard bank card against the display and resize
+  the outline with its corner handle or slider. Click **Fits my card**. This gives
+  physical screen scale without typing measurements; no card photo is taken.
+- **Estimate distance:** with the camera active, hold still at the reference dot
+  for a one-second face-pose depth estimate. This is approximate camera-to-face
+  distance, not calibrated eye-to-screen measurement. The known 46 cm starting
+  estimate can be better than the camera estimate.
+- **Fine-tune measurements** remains available. Measurements are saved locally.
+  Card scale compensates for browser zoom changes; moving to a differently sized
+  monitor requires another card match.
+
+For a stationary-object test, disable **Gaze rotates object** and choose a model
+without animation. Head movement bypasses steering sensitivity, inversion, and
+normalized deadzones. In Head camera those controls affect gaze only. Camera
+translation and the screen projection update together in physical units.
 
 **Try simulated tracking** exercises the same input mapping and camera controls
 without a camera, including the animated reference dot. It is visibly labelled and is
@@ -106,6 +129,15 @@ That verifies the software path, not live tracking comfort or accuracy. Default
 physical direction, lighting/glasses performance, and eye control need a human
 webcam trial. The horizontal inversion switch is available for that trial.
 
+Projection tests verify fixed screen corners under XYZ motion, front/behind-plane
+parallax, depth-dependent scaling, unchanged pose and projection on clutch rebases,
+restoring the regular camera on mode exit, and resize without a fresh tracking frame.
+Bank-card scale and zoom compensation are also checked. These numerical tests do
+not establish real webcam depth accuracy or the user's actual card measurement.
+Browser checks covered card resizing/confirmation, persistence across reload,
+the distance-estimate flow, and a scaled portrait stream whose approach reduced
+the reported viewing distance. Test calibration settings were cleared afterward.
+
 See [docs/research.md](docs/research.md) for sources and design decisions.
 
 ## Structure
@@ -114,6 +146,7 @@ See [docs/research.md](docs/research.md) for sources and design decisions.
 src/viewer.ts          GLB loading, lighting, animation, disposal, mouse controls
 src/object-rotation.ts gaze-driven rotation of the centered model
 src/camera-rig.ts      orbit / fixed-position look / head-position camera behavior
+src/screen-window.ts   physically scaled XYZ view and fixed-plane off-axis projection
 src/tracking-math.ts   pose, iris geometry, neutral, guards, signal filtering
 src/reference-capture.ts  continuous one-second stability and reference capture
 src/tracker.ts         opt-in camera and worker lifecycle, one frame in flight

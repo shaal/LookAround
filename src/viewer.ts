@@ -117,10 +117,15 @@ export class Viewer {
     const resize = () => {
       const { width, height } = container.getBoundingClientRect();
       this.renderer.setSize(width, height);
-      this.camera.aspect = width / height;
-      this.camera.updateProjectionMatrix();
+      this.rig.resize({
+        width,
+        height,
+        screenWidth: window.screen.width || window.innerWidth,
+        pixelRatio: devicePixelRatio,
+      });
     };
     new ResizeObserver(resize).observe(container);
+    window.addEventListener("resize", resize);
     resize();
     let dragging = false,
       lastX = 0,

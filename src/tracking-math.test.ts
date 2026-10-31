@@ -102,24 +102,27 @@ test("deadzone clamps input and smoothing is independent of frame rate", () => {
   close(a.y, b.y);
 });
 
-test("head-position signal ignores rotation, uses fixed neutral depth, and bounds movement", () => {
+test("head-position input maps XYZ to centimeters with no normalized steering gain or saturation", () => {
   const n = neutralFromSamples([sample()]);
   const s = sample();
   s.rotation.setFromEuler(new Euler(0.3, -0.4, 0.1));
-  const stationary = positionSignal(s, n, 1050, 1, 0.12, false)!;
+  const stationary = positionSignal(s, n, 1050, 60)!;
   close(stationary.x, 0);
   close(stationary.y, 0);
   s.position.x = -7.2;
   s.position.y = 5.4;
-  const initial = positionSignal(s, n, 1050, 1, 0.12, false)!;
-  close(initial.x, 1);
-  close(initial.y, -1);
+  const initial = positionSignal(s, n, 1050, 60)!;
+  close(initial.x, 7.2);
+  close(initial.y, -5.4);
   s.position.z = -30;
-  assert.deepEqual(positionSignal(s, n, 1050, 1, 0.12, false), initial);
-  close(positionSignal(s, n, 1050, 1, 0.12, true)!.x, -1);
-  assert.equal(positionSignal(s, n, 1300, 1, 0.12, false), null);
+  const closer = positionSignal(s, n, 1050, 60)!;
+  close(closer.x, initial.x);
+  close(closer.y, initial.y);
+  close(closer.z!, -30);
+  close(positionSignal(s, n, 1050, 90)!.x, initial.x * 1.5);
+  assert.equal(positionSignal(s, n, 1300, 60), null);
   n.position.z = 0;
-  assert.equal(positionSignal(s, n, 1050, 1, 0.12, false), null);
+  assert.equal(positionSignal(s, n, 1050, 60), null);
 });
 
 test("face samples extract translation separately from the rotation matrix", () => {

@@ -290,10 +290,62 @@
             <span>Head position</span
             ><span class="small muted">TRANSLATION</span>
           </div>
-          <p class="signal-note">
-            Move your head sideways or up/down. Head turns don’t steer this
-            mode.
-          </p>
+          <p class="signal-note">Move sideways, up/down, closer or farther.</p>
+          <div class="quick-calibration">
+            <button id="match-card" class="secondary-button" type="button">
+              Match a bank card <span>↗</span></button
+            ><button
+              id="estimate-distance"
+              class="secondary-button"
+              type="button"
+              disabled
+              title="Enable camera to estimate viewing distance"
+            >
+              Estimate distance <span>✧</span>
+            </button>
+            <p id="calibration-summary">32″ screen · ~46 cm viewing distance</p>
+          </div>
+          <details class="screen-calibration">
+            <summary>Fine-tune measurements</summary>
+            <form id="screen-calibration-form">
+              <label for="screen-width">Screen width <span>cm</span></label
+              ><input
+                id="screen-width"
+                type="number"
+                min="10"
+                max="250"
+                step="0.1"
+                value="70.8"
+                required
+              />
+              <label for="eye-distance">Eyes to screen <span>cm</span></label
+              ><input
+                id="eye-distance"
+                type="number"
+                min="15"
+                max="200"
+                step="1"
+                value="46"
+                required
+              />
+              <label for="object-distance"
+                >Initial object distance <span>cm</span></label
+              ><input
+                id="object-distance"
+                type="number"
+                min="20"
+                max="500"
+                step="1"
+                value="61"
+                required
+              />
+              <p>
+                32″ 16:9 preset. A matched bank card replaces the screen-size
+                estimate. Camera distance is approximate.
+              </p>
+              <button type="submit" class="secondary-button">Apply</button>
+            </form>
+          </details>
           <label class="toggle-row" for="eye-rotation"
             ><span
               >Gaze rotates object
@@ -337,7 +389,8 @@
 
         <div class="sliders">
           <label for="sensitivity"
-            >Sensitivity <output id="sensitivity-value">1.0×</output></label
+            ><span id="sensitivity-label">Sensitivity</span>
+            <output id="sensitivity-value">1.0×</output></label
           ><input
             id="sensitivity"
             type="range"
@@ -355,7 +408,8 @@
             step="0.05"
             value="0.45"
           /><label for="deadzone"
-            >Center dead zone <output id="deadzone-value">12%</output></label
+            ><span id="deadzone-label">Center dead zone</span>
+            <output id="deadzone-value">12%</output></label
           ><input
             id="deadzone"
             type="range"
@@ -366,7 +420,7 @@
           />
         </div>
         <label class="toggle-row" for="invert"
-          ><span>Invert horizontal</span
+          ><span id="invert-label">Invert horizontal</span
           ><input type="checkbox" id="invert" role="switch" /><span
             class="toggle-visual"
           ></span
@@ -376,6 +430,47 @@
         </div>
       </aside>
     </main>
+    <dialog id="card-dialog" class="card-dialog" aria-labelledby="card-title">
+      <button
+        id="close-card"
+        class="icon-button close-dialog"
+        type="button"
+        aria-label="Close card calibration"
+      >
+        ×
+      </button>
+      <h2 id="card-title">Match your card.</h2>
+      <p>
+        Hold a bank card against the screen.<br />Resize the outline until it
+        fits.
+      </p>
+      <div class="card-sizing-area">
+        <div id="card-outline" class="card-outline">
+          <span aria-hidden="true">◈</span
+          ><button
+            id="card-resize-handle"
+            type="button"
+            aria-label="Drag to resize the card outline"
+          >
+            ↘
+          </button>
+        </div>
+      </div>
+      <label class="card-size-control" for="card-size"
+        ><span>−</span
+        ><input
+          id="card-size"
+          type="range"
+          min="100"
+          max="500"
+          step="1"
+          aria-label="Card outline size"
+        /><span>+</span></label
+      ><button id="confirm-card" class="primary-button" type="button">
+        Fits my card
+      </button>
+      <p class="card-note">No card photo needed. Saved on this browser.</p>
+    </dialog>
     <dialog
       id="reference-dialog"
       class="reference-dialog"
@@ -445,9 +540,10 @@
         <div>
           <h3>Head camera</h3>
           <p>
-            Slide your head left/right or up/down to move the camera with it.
-            Head turns don’t rotate the view. Gaze rotates the object by
-            default; turn it off with Gaze rotates object.
+            Move left/right, up/down, closer or farther. Screen calibration sets
+            the physical scale and viewing perspective. Head turns don’t rotate
+            the view. Gaze rotates the object by default; turn it off with Gaze
+            rotates object.
           </p>
         </div>
       </div>

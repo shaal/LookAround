@@ -109,17 +109,15 @@ separates rotation and translation. The new **Head camera** mode uses translatio
 from matrix elements 12–14, independently of the head quaternion. Translation is
 still an estimate, not a measurement of physical travel in calibrated centimeters.
 
-Subtract the captured reference's position and divide XY displacement by the
-**fixed neutral depth**. This is a practical interaction mapping inferred from
-the coordinate system, not an upstream recommendation. Using current depth would
-make the gain change when leaning forward. Map the result to bounded local camera
-X/Y displacement, approximately ±1.15 scene units horizontally and ±0.85 vertically
-at full command. The mode excludes forward/backward movement. It applies an
-absolute offset, so holding a head position does not accumulate travel.
+The current Head camera maps XYZ pose deltas into approximate centimeters, using
+the entered neutral viewing distance to calibrate the pose scale. It keeps that
+scale through reference captures within a camera session. Position bypasses
+steering sensitivity, horizontal inversion, and normalized deadzones/saturation;
+light smoothing remains. It applies absolute offsets, so holding a head position
+does not accumulate travel. Impossible eye-screen distances freeze the last view.
 
 The camera orientation stays fixed: there is no `lookAt(object)` on each frame,
-which would mix an automatic rotation into the translation. The object therefore
-changes screen position as well as perspective. **Gaze rotates object** is enabled
+which would mix an automatic rotation into the translation. **Gaze rotates object** is enabled
 by default and applies bounded orientation offsets to the centered model (about
 ±45° yaw, ±28° pitch). It never changes the camera orientation. Blinking/unreliable
 eyes freezes the model angle while head translation continues; the toggle disables
@@ -131,6 +129,62 @@ no drift while holding a position, camera-local axes, and independent eye loss.
 On a real webcam, head turning can still perturb the estimated translation.
 A human trial should compare a sideways slide with head orientation held still
 against turning in place, and verify the horizontal sign on that camera.
+
+## A fixed screen, rather than an ordinary camera dolly
+
+An off-axis projection sends rays from the moving eye through a **fixed physical
+screen rectangle**. This follows the geometry of generalized perspective projection;
+the [Three.js camera documentation](https://threejs.org/docs/pages/PerspectiveCamera.html)
+describes its projection parameters, and the implementation constructs the asymmetric
+projection matrix directly and refreshes its inverse.
+
+With a neutral eye at the local origin and screen at `z = -D`, an eye offset
+`(x, y, z)` produces near-plane frustum bounds:
+
+```text
+distance = D + z
+left   = (-screenWidth/2  - x) * near / distance
+right  = ( screenWidth/2  - x) * near / distance
+bottom = (-screenHeight/2 - y) * near / distance
+top    = ( screenHeight/2 - y) * near / distance
+```
+
+Head motion never rotates or translates the screen frame. Clutch/reference rebases
+change a tracking bias while preserving the applied eye position and projection.
+Explicit mouse navigation may move the virtual view frame. World scale is established
+once on Head camera entry or explicit calibration, using the captured camera-to-model
+distance and the requested initial object distance; it is not recomputed per frame.
+The normalized models therefore have inferred, rather than source-authored, physical size.
+The neutral eye is assumed centered on the view. Real webcam mounting offset, intrinsics,
+and the difference between face origin and eye midpoint remain approximations.
+
+At the user's requested defaults, the eye is about 46 cm from the screen and the
+object center is about 61 cm away. The object is therefore about 15 cm behind the
+screen. Points on the screen plane stay fixed. Objects behind it shift in the
+same screen direction as a lateral eye movement; foreground objects shift oppositely.
+Leaning toward the screen makes a behind-screen object's pixel size shrink even
+while its visual angle increases because the viewer is closer to the physical screen.
+Tests use these geometric expectations rather than ordinary symmetric-camera zoom.
+
+## Setup without typing measurements
+
+The 32-inch 16:9 default corresponds to approximately 70.8 cm width; the 1.5-foot
+viewing estimate is rounded to 46 cm. The user may instead match an on-screen outline
+to a standard 85.60 × 53.98 mm ID-1 bank card ([ISO/IEC 7810](https://www.iso.org/standard/70483.html)).
+The rendered width divided by 8.56 cm gives CSS pixels per centimeter. Captured
+devicePixelRatio lets that scale compensate for later browser zoom. The app saves
+these numeric calibration settings in localStorage and invalidates the card scale
+on a different screen geometry. No card image or face landmarks are saved.
+
+The optional distance button collects a stable reference for one second, uses its
+median face-pose translation depth, and labels the result approximate. It does
+not claim calibrated depth-from-iris performance.
+[Google's iris-depth research](https://research.google/blog/mediapipe-iris-real-time-iris-tracking-depth-estimation/)
+uses physical iris size **and camera focal length/intrinsics**. Those camera
+intrinsics are not calibrated in this app. A precise automatic absolute eye-screen
+distance would need additional camera calibration or depth hardware; the card match
+calibrates the display, not the webcam. The requested 46 cm estimate remains the
+starting value unless the user explicitly chooses the camera estimate or fine tuning.
 
 ## Public models
 

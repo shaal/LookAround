@@ -70,7 +70,7 @@ test("head-camera holds a camera-local displacement without drift or orientation
   const right = new Vector3(1, 0, 0).applyQuaternion(orientation);
   for (let i = 0; i < 600; i++) rig.update({ x: 1, y: 0 }, 1 / 60);
   assert.ok(
-    camera.position.distanceTo(base.clone().addScaledVector(right, 1.15)) <
+    camera.position.distanceTo(base.clone().addScaledVector(right, 6.8 / 61)) <
       1e-8,
   );
   assert.ok(camera.quaternion.equals(orientation));
@@ -95,12 +95,24 @@ test("gaze rotates the object while camera translation and orientation stay inde
   gaze.update(null);
   assert.ok(object.quaternion.equals(eyeRotation));
   assert.ok(
-    camera.position.distanceTo(base.addScaledVector(right, 1.15)) < 1e-8,
+    camera.position.distanceTo(base.addScaledVector(right, 6.8 / 61)) < 1e-8,
   );
   const held = camera.position.clone();
   rig.update(null, 1);
   assert.ok(camera.position.equals(held));
   assert.ok(camera.quaternion.equals(q));
+});
+
+test("leaving head camera restores the symmetric projection", () => {
+  const camera = new PerspectiveCamera(40, 4 / 3, 0.01, 100);
+  const rig = new CameraRig(camera);
+  rig.resize({ width: 800, height: 600, screenWidth: 1600 });
+  const original = camera.projectionMatrix.clone();
+  rig.setMode("position");
+  rig.update({ x: 7, y: 3, z: -10 }, 1 / 60);
+  assert.ok(!camera.projectionMatrix.equals(original));
+  rig.setMode("look");
+  assert.ok(camera.projectionMatrix.equals(original));
 });
 test("clutch anchoring preserves a nonzero absolute input across manual movement and mode changes", () => {
   const camera = new PerspectiveCamera();

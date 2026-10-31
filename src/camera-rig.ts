@@ -7,6 +7,12 @@ import {
   Vector3,
 } from "three";
 import { clamp, type Signal } from "./tracking-math";
+import {
+  DEFAULT_SCREEN_CALIBRATION,
+  ScreenWindow,
+  type ScreenCalibration,
+  type ScreenViewport,
+} from "./screen-window";
 
 export type ViewMode = "orbit" | "look" | "position";
 
@@ -15,7 +21,9 @@ export class CameraRig {
   mode: ViewMode = "orbit";
   private sphere = new Spherical(6.8, Math.PI / 2 - 0.08, 0.3);
   private base = new Quaternion();
-  private basePosition = new Vector3();
+  private screenWindow: ScreenWindow;
+  private screenCalibration = { ...DEFAULT_SCREEN_CALIBRATION };
+  private viewport: ScreenViewport = { width: 1, height: 1, screenWidth: 1 };
   private transition: {
     from: Quaternion;
     to: Quaternion;
@@ -23,11 +31,13 @@ export class CameraRig {
   } | null = null;
 
   constructor(readonly camera: PerspectiveCamera) {
+    this.screenWindow = new ScreenWindow(camera);
     this.reset();
   }
 
   reset() {
     this.mode = "orbit";
+    this.camera.updateProjectionMatrix();
     this.transition = null;
     // Narrow canvases need extra distance to fit the model horizontally.
     this.sphere.set(
@@ -40,11 +50,17 @@ export class CameraRig {
 
   setMode(mode: ViewMode) {
     if (mode === this.mode) return;
+    if (this.mode === "position") this.camera.updateProjectionMatrix();
     this.mode = mode;
     if (mode !== "orbit") {
       this.transition = null;
       this.base.copy(this.camera.quaternion);
-      this.basePosition.copy(this.camera.position);
+      if (mode === "position")
+        this.screenWindow.capture(
+          this.screenCalibration,
+          this.viewport,
+          this.target,
+        );
     } else {
       this.sphere.setFromVector3(this.camera.position.clone().sub(this.target));
       const to = new Quaternion().setFromRotationMatrix(
@@ -64,10 +80,7 @@ export class CameraRig {
         .copy(this.camera.quaternion)
         .multiply(this.lookOffset(signal).invert());
     if (this.mode === "position") {
-      this.base.copy(this.camera.quaternion);
-      this.basePosition
-        .copy(this.camera.position)
-        .sub(this.positionOffset(signal));
+      this.screenWindow.rebase(signal);
     }
   }
 
@@ -81,11 +94,21 @@ export class CameraRig {
     );
   }
 
-  private positionOffset(signal: Signal) {
-    // Translation uses the captured camera orientation.
-    return new Vector3(signal.x * 1.15, -signal.y * 0.85, 0).applyQuaternion(
-      this.base,
-    );
+  configureScreen(calibration: ScreenCalibration) {
+    this.screenCalibration = { ...calibration };
+    if (this.mode === "position")
+      this.screenWindow.capture(calibration, this.viewport, this.target);
+  }
+
+  resize(viewport: ScreenViewport) {
+    this.viewport = { ...viewport };
+    this.camera.aspect = viewport.width / viewport.height;
+    if (this.mode === "position") this.screenWindow.resize(viewport);
+    else this.camera.updateProjectionMatrix();
+  }
+
+  get eyeDistanceCm() {
+    return this.screenWindow.eyeDistanceCm;
   }
 
   private applyOrbit() {
@@ -118,10 +141,7 @@ export class CameraRig {
     } else if (this.mode === "look") {
       this.camera.quaternion.copy(this.base).multiply(this.lookOffset(signal));
     } else {
-      this.camera.position
-        .copy(this.basePosition)
-        .add(this.positionOffset(signal));
-      // Camera orientation stays fixed; gaze rotates the model in Viewer.
+      this.screenWindow.apply(signal);
     }
   }
 
@@ -144,7 +164,7 @@ export class CameraRig {
           ),
         );
       this.camera.quaternion.copy(this.base);
-      this.basePosition.copy(this.camera.position);
+      if (this.mode === "position") this.screenWindow.anchorManualView();
     }
   }
 
@@ -165,6 +185,7 @@ export class CameraRig {
       );
       if (this.camera.position.distanceTo(this.target) > 18)
         this.camera.position.sub(this.target).setLength(18).add(this.target);
+      if (this.mode === "position") this.screenWindow.anchorManualView();
     }
   }
 

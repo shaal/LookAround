@@ -1716,6 +1716,131 @@ dialog > .text-link {
 .position-options .control-label {
   margin-top: 0;
 }
+.screen-calibration {
+  margin: 10px 0 17px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.screen-calibration summary {
+  cursor: pointer;
+  font-size: 10px;
+  color: #c0b9ae;
+}
+.screen-calibration form {
+  display: grid;
+  grid-template-columns: 1fr 63px;
+  align-items: center;
+  gap: 10px 8px;
+  margin-top: 15px;
+}
+.screen-calibration label {
+  font-size: 9px;
+  color: #a6a3aa;
+  line-height: 1.5;
+}
+.screen-calibration label span {
+  color: #737680;
+  font-size: 8px;
+  margin-left: 4px;
+}
+.screen-calibration input {
+  width: 100%;
+  min-width: 0;
+  border-radius: 4px;
+  border: 1px solid #42424a;
+  background: #15161a;
+  color: #dfd6c8;
+  padding: 6px;
+  font-size: 10px;
+}
+.screen-calibration p {
+  grid-column: 1 / -1;
+  font-size: 8px;
+  color: #81838d;
+  line-height: 1.7;
+}
+.screen-calibration button {
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+.quick-calibration {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+}
+.quick-calibration button {
+  justify-content: space-between;
+}
+.quick-calibration p {
+  color: #85838b;
+  font-size: 8px;
+  line-height: 1.6;
+}
+.card-dialog {
+  width: min(600px, calc(100vw - 32px));
+  max-width: 600px;
+  text-align: center;
+}
+.card-dialog h2 {
+  font-size: 26px;
+  margin: 12px 0;
+}
+.card-dialog > p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.card-sizing-area {
+  height: min(340px, 42dvh);
+  display: grid;
+  place-items: center;
+}
+.card-outline {
+  width: 250px;
+  aspect-ratio: 8.56 / 5.398;
+  border: 2px solid #e9bb82;
+  border-radius: 12px;
+  background: linear-gradient(140deg, #e9bb8210, #e9bb8203);
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 7px #e9bb8208;
+}
+.card-outline > span {
+  color: #e9bb8260;
+  font-size: 32px;
+}
+#card-resize-handle {
+  position: absolute;
+  right: -12px;
+  bottom: -12px;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  background: #e9bb82;
+  color: #211d17;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.card-size-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #a7a1a0;
+  margin: 0 auto 20px;
+  max-width: 340px;
+}
+.card-size-control input {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.card-dialog > .card-note {
+  font-size: 9px;
+  color: #777a84;
+  margin-top: 15px;
+}
 .position-options .toggle-row {
   margin-top: 15px;
   margin-bottom: 10px;

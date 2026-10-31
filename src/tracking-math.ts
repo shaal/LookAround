@@ -22,6 +22,7 @@ export interface Neutral {
 export interface Signal {
   x: number;
   y: number;
+  z?: number;
 }
 export type Source = "head" | "eyes" | "combined";
 
@@ -150,35 +151,29 @@ export function isFresh(sample: Sample | null, now: number): sample is Sample {
   );
 }
 
-// Translation lives in the camera frame, not the rotating head frame. Normalize
-// by the FIXED neutral distance so leaning/turning cannot change the input gain.
-// This is a relative monocular estimate, not a calibrated measurement in cm.
+// Calibrate the monocular pose scale from the user's neutral viewing distance.
+// XYZ offsets are in cm, with y down and z away from the screen. Steering gain,
+// inversion and normalized deadzones must not alter physical translation.
 export function positionSignal(
   sample: Sample | null,
   neutral: Neutral | null,
   now: number,
-  sensitivity: number,
-  zone: number,
-  invert: boolean,
+  eyeDistanceCm: number,
 ): Signal | null {
   if (!isFresh(sample, now) || !neutral) return null;
   const depth = Math.abs(neutral.position.z);
   if (
     depth < 1e-3 ||
+    !Number.isFinite(eyeDistanceCm) ||
+    eyeDistanceCm <= 0 ||
     ![...sample.position, ...neutral.position].every(Number.isFinite)
   )
     return null;
+  const scale = eyeDistanceCm / depth;
   return {
-    x:
-      deadzone(
-        (-(sample.position.x - neutral.position.x) / depth / 0.12) *
-          sensitivity,
-        zone,
-      ) * (invert ? -1 : 1),
-    y: deadzone(
-      (-(sample.position.y - neutral.position.y) / depth / 0.09) * sensitivity,
-      zone,
-    ),
+    x: -(sample.position.x - neutral.position.x) * scale,
+    y: -(sample.position.y - neutral.position.y) * scale,
+    z: -(sample.position.z - neutral.position.z) * scale,
   };
 }
 
@@ -230,5 +225,8 @@ export function smoothSignal(
   return {
     x: previous.x + (next.x - previous.x) * alpha,
     y: previous.y + (next.y - previous.y) * alpha,
+    ...(previous.z !== undefined || next.z !== undefined
+      ? { z: (previous.z ?? 0) + ((next.z ?? 0) - (previous.z ?? 0)) * alpha }
+      : {}),
   };
 }
