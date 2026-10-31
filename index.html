@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#141518" />
+    <meta
+      name="description"
+      content="Explore 3D objects with a turn of your head. A local, camera-controlled GLB playground with experimental eye direction."
+    />
+    <title>Parallax — a head-controlled 3D playground</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Parallax home"
+        ><span class="brand-mark" aria-hidden="true">◈</span> parallax<span
+          class="brand-period"
+          >.</span
+        ></a
+      >
+      <span class="topbar-divider"></span
+      ><span class="topbar-description">A different perspective.</span>
+      <div class="header-right">
+        <span class="experiment-tag">EXPERIMENT 001</span
+        ><button
+          class="icon-button"
+          id="help-button"
+          title="How it works"
+          aria-label="How it works"
+        >
+          <span data-icon="help"></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="library panel" aria-label="Model library">
+        <div class="section-heading">
+          <span class="eyebrow">01 / THE OBJECT</span
+          ><span class="count">4</span>
+        </div>
+        <h1>Pick a perspective.</h1>
+        <p class="muted intro">A few objects worth looking at.</p>
+        <div class="model-list" id="model-list">
+          <button
+            class="model-card selected"
+            data-model="DamagedHelmet"
+            aria-pressed="true"
+          >
+            <span class="model-thumb helmet"
+              ><img src="/models/DamagedHelmet.png" alt="" /></span
+            ><span class="model-copy"
+              ><strong>Damaged helmet</strong
+              ><span>Weathered metal · PBR</span></span
+            ><span class="selection-indicator">↗</span>
+          </button>
+          <button class="model-card" data-model="BoomBox" aria-pressed="false">
+            <span class="model-thumb boombox"
+              ><img src="/models/BoomBox.jpg" alt="" /></span
+            ><span class="model-copy"
+              ><strong>Boom box</strong
+              ><span>A little retro-futurism</span></span
+            ><span class="selection-indicator">↗</span>
+          </button>
+          <button class="model-card" data-model="Avocado" aria-pressed="false">
+            <span class="model-thumb avocado"
+              ><img src="/models/Avocado.jpg" alt="" /></span
+            ><span class="model-copy"
+              ><strong>Avocado</strong><span>Something more organic</span></span
+            ><span class="selection-indicator">↗</span>
+          </button>
+          <button class="model-card" data-model="Duck" aria-pressed="false">
+            <span class="model-thumb duck"
+              ><img src="/models/Duck.png" alt="" /></span
+            ><span class="model-copy"
+              ><strong>The classic duck</strong
+              ><span>Small, yellow, iconic</span></span
+            ><span class="selection-indicator">↗</span>
+          </button>
+        </div>
+        <a
+          class="text-link browse-link"
+          href="https://github.khronos.org/glTF-Assets/"
+          target="_blank"
+          rel="noreferrer"
+          >Browse the Khronos collection <span>↗</span></a
+        >
+
+        <div class="library-divider"></div>
+        <span class="eyebrow">BRING YOUR OWN</span>
+        <button class="upload-zone" id="upload-button">
+          <span data-icon="upload"></span><strong>Drop a .glb here</strong
+          ><span>or click to choose a file</span>
+        </button>
+        <input
+          id="file-input"
+          type="file"
+          accept=".glb,model/gltf-binary"
+          hidden
+        />
+        <details class="url-details">
+          <summary>Load from a URL <span>+</span></summary>
+          <form id="url-form">
+            <label for="model-url">Direct GLB URL</label>
+            <div class="url-field">
+              <input
+                type="url"
+                id="model-url"
+                placeholder="https://…/model.glb"
+                required
+              /><button type="submit" aria-label="Load model URL">↗</button>
+            </div>
+            <p class="small muted">
+              The host must allow cross-origin downloads.
+            </p>
+          </form>
+        </details>
+        <div class="library-footer">
+          <span class="tiny-cross">+</span>
+          <p>
+            No account. No uploads.<br />Your own models stay in this browser.
+          </p>
+        </div>
+      </aside>
+
+      <section class="stage" id="stage" aria-label="3D viewer">
+        <div id="canvas-container"></div>
+        <div class="stage-heading">
+          <span class="eyebrow"
+            ><span class="live-dot"></span> SPATIAL PLAYGROUND</span
+          >
+          <h2 id="model-name">Damaged helmet</h2>
+          <p id="model-subtitle">Turn your head. Find a new angle.</p>
+        </div>
+        <div class="stage-toolbar">
+          <button
+            class="icon-button"
+            id="grid-button"
+            aria-label="Toggle floor grid"
+            title="Floor grid"
+            aria-pressed="true"
+          >
+            <span data-icon="grid"></span></button
+          ><button
+            class="icon-button"
+            id="wire-button"
+            aria-label="Toggle wireframe"
+            title="Wireframe"
+            aria-pressed="false"
+          >
+            <span data-icon="box"></span></button
+          ><span class="toolbar-divider"></span
+          ><button
+            class="icon-button"
+            id="reset-button"
+            aria-label="Reset view"
+            title="Reset view (R)"
+          >
+            <span data-icon="reset"></span></button
+          ><button
+            class="icon-button"
+            id="fullscreen-button"
+            aria-label="Toggle fullscreen"
+            title="Fullscreen"
+          >
+            <span data-icon="expand"></span>
+          </button>
+        </div>
+        <div class="viewer-message" id="viewer-message" role="status">
+          <span class="spinner"></span> Opening the object…
+        </div>
+        <div class="simulation-tag" id="simulation-tag" hidden>
+          <span class="live-dot"></span> SIMULATED INPUT
+          <span>· no camera</span>
+        </div>
+        <div class="pause-tag" id="pause-tag" hidden>Ⅱ TRACKING PAUSED</div>
+        <div class="drag-overlay" id="drag-overlay" hidden>
+          <span data-icon="upload"></span>Drop to explore
+        </div>
+        <div class="stage-controls">
+          <p class="mode-hint" id="mode-hint">
+            Turn a little. Keep orbiting. Return to center to stop.
+          </p>
+          <div class="camera-dock" role="group" aria-label="Camera movement">
+            <button
+              id="mode-orbit"
+              class="dock-button active"
+              aria-pressed="true"
+            >
+              <span data-icon="orbit"></span><span>Orbit object</span
+              ><kbd>1</kbd></button
+            ><button id="mode-look" class="dock-button" aria-pressed="false">
+              <span data-icon="look"></span><span>Look around</span><kbd>2</kbd>
+            </button>
+          </div>
+          <p class="mouse-hint">
+            <span data-icon="mouse"></span> Drag to rotate <span>·</span> Scroll
+            to zoom <span>·</span> <kbd>R</kbd> reset
+          </p>
+        </div>
+        <div class="stage-bottom">
+          <span id="model-format">GLB 2.0</span
+          ><span id="geometry-info">Loading geometry</span
+          ><span id="view-angle">017° AZIMUTH</span>
+        </div>
+        <div class="model-credit">
+          <a
+            id="model-credit"
+            target="_blank"
+            rel="noreferrer"
+            href="/models/licenses/DamagedHelmet.md"
+            >Model credits ↗</a
+          >
+        </div>
+      </section>
+
+      <aside class="tracking panel" aria-label="Tracking controls">
+        <div class="section-heading">
+          <span class="eyebrow">02 / YOUR MOVEMENT</span
+          ><span class="privacy-dot" title="Processed on this device"></span>
+        </div>
+        <div class="tracking-title">
+          <h2>You're the controller.</h2>
+          <span class="beta-badge">BETA</span>
+        </div>
+        <p class="muted tracking-intro">Small movements. A whole new view.</p>
+        <div class="camera-preview" id="camera-preview">
+          <video id="camera-video" autoplay muted playsinline></video
+          ><canvas
+            id="face-overlay"
+            width="480"
+            height="300"
+            aria-hidden="true"
+          ></canvas>
+          <div class="camera-placeholder" id="camera-placeholder">
+            <span data-icon="face"></span><span>Your camera, your device.</span>
+          </div>
+          <span class="preview-label" id="preview-label">CAMERA OFF</span
+          ><span class="preview-corner top-left"></span
+          ><span class="preview-corner bottom-right"></span>
+        </div>
+        <p class="tracking-status" id="tracking-status" role="status">
+          Enable your webcam to get started.
+        </p>
+        <button class="primary-button" id="camera-button">
+          <span data-icon="camera"></span> Enable camera
+          <span class="button-arrow">↗</span>
+        </button>
+        <button class="simulation-button" id="simulation-button">
+          <span data-icon="play"></span> Try simulated tracking <span>↗</span>
+        </button>
+        <p class="privacy-note">
+          <span data-icon="shield"></span> Frames are processed locally. Never
+          recorded.
+        </p>
+        <div class="tracking-divider"></div>
+
+        <div class="control-label">
+          <span>Tracking signal</span
+          ><span class="small muted" id="source-kind">HEAD POSE</span>
+        </div>
+        <div class="segmented" role="group" aria-label="Tracking signal">
+          <button data-source="head" class="active" aria-pressed="true">
+            Head</button
+          ><button data-source="eyes" aria-pressed="false">
+            Eyes <span>✧</span></button
+          ><button data-source="combined" aria-pressed="false">
+            Both <span>✧</span>
+          </button>
+        </div>
+        <p class="signal-note" id="signal-note">
+          Head rotation steers the camera.
+        </p>
+        <div class="movement-monitor">
+          <div class="signal-pad" id="signal-pad">
+            <span class="pad-horizontal"></span
+            ><span class="pad-vertical"></span><span class="pad-deadzone"></span
+            ><span id="signal-dot"></span>
+          </div>
+          <div class="movement-values">
+            <span class="eyebrow">DIRECTION</span
+            ><strong id="signal-direction">Centered</strong
+            ><span id="inference-info">Waiting for input</span>
+          </div>
+        </div>
+        <div class="calibration-actions">
+          <button id="center-button" class="secondary-button" disabled>
+            <span data-icon="crosshair"></span> Set neutral <kbd>C</kbd></button
+          ><button
+            id="pause-button"
+            class="icon-button"
+            aria-label="Pause tracking"
+            aria-pressed="false"
+            title="Pause / resume (Space)"
+            disabled
+          >
+            <span data-icon="pause"></span>
+          </button>
+        </div>
+
+        <div class="sliders">
+          <label for="sensitivity"
+            >Sensitivity <output id="sensitivity-value">1.0×</output></label
+          ><input
+            id="sensitivity"
+            type="range"
+            min="0.3"
+            max="2.5"
+            step="0.1"
+            value="1"
+          /><label for="smoothing"
+            >Smoothing <output id="smoothing-value">Balanced</output></label
+          ><input
+            id="smoothing"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="0.45"
+          /><label for="deadzone"
+            >Center dead zone <output id="deadzone-value">12%</output></label
+          ><input
+            id="deadzone"
+            type="range"
+            min="0"
+            max="0.4"
+            step="0.01"
+            value="0.12"
+          />
+        </div>
+        <label class="toggle-row" for="invert"
+          ><span>Invert horizontal</span
+          ><input type="checkbox" id="invert" role="switch" /><span
+            class="toggle-visual"
+          ></span
+        ></label>
+        <div class="tracking-footer">
+          <kbd>Space</kbd> pause <span>·</span> <kbd>C</kbd> recenter
+        </div>
+      </aside>
+    </main>
+    <dialog id="help-dialog">
+      <button
+        id="close-help"
+        class="icon-button close-dialog"
+        aria-label="Close help"
+      >
+        ×</button
+      ><span class="eyebrow">A SMALL EXPERIMENT IN SPATIAL INPUT</span>
+      <h2>A turn of the head.<br />A change of perspective.</h2>
+      <p>
+        Choose a sample or drop your own GLB, enable the camera, then face
+        forward while the neutral position is captured. Small movements work
+        best.
+      </p>
+      <div class="help-mode">
+        <span data-icon="orbit"></span>
+        <div>
+          <h3>Orbit object</h3>
+          <p>
+            Turn away from center to move around the object continuously. Hold a
+            small turn to go all the way around; center your head to stop.
+          </p>
+        </div>
+      </div>
+      <div class="help-mode">
+        <span data-icon="look"></span>
+        <div>
+          <h3>Look around</h3>
+          <p>
+            Your camera stays in place. Turning your head looks left, right, up,
+            and down. Return to neutral to look forward again.
+          </p>
+        </div>
+      </div>
+      <p>
+        <strong>Eyes and Both are experimental.</strong> Iris movement gives a
+        rough directional input, not a calibrated gaze point. Head tracking is
+        the recommended starting point. Use Invert horizontal if your camera's
+        direction feels reversed.
+      </p>
+      <p class="muted small">
+        Drag or scroll takes manual control. Space pauses movement. C sets a new
+        neutral without resetting the view. Lost tracking freezes the camera.
+        Nothing is recorded or uploaded.
+      </p>
+      <a
+        href="https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js"
+        target="_blank"
+        rel="noreferrer"
+        class="text-link"
+        >Built with Three.js + MediaPipe <span>↗</span></a
+      >
+    </dialog>
+    <div id="toast" role="status" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

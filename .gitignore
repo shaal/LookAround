@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/vision/
+public/models/
+public/decoders/
+artifacts/
+.env*
+*.tsbuildinfo
