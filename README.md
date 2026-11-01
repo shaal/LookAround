@@ -1,8 +1,22 @@
-# Parallax
+# LookAround
 
-A standalone, local 3D playground: open a GLB, then use your head to explore it.
-Built from scratch with TypeScript, Three.js, and MediaPipe. It has its own Git
-repository and no dependency on the eye-tracker project, Electron, or native code.
+Move your head. Change your perspective.
+
+A local 3D playground for GLB models, controlled by head position, head rotation,
+or experimental eye direction. Explore a model with your webcam, use familiar
+orbit/pan/zoom mouse controls, or try simulated tracking without a camera.
+Built with TypeScript, Three.js, and MediaPipe; no account or native app required.
+
+![LookAround interface displaying the Damaged Helmet model, with the model library, 3D setup diagram, and tracking controls](docs/images/lookaround-helmet.png)
+
+The Damaged Helmet sample in these screenshots is by ctxwing / theblueturtle\_.
+See [model credits and licenses](#sample-models-and-credits).
+
+![Head camera mode with the helmet and a diagram showing the viewer, screen, and model](docs/images/lookaround-head-camera.png)
+
+Head camera translates the view as you move left/right, up/down, or closer/farther.
+Optional gaze rotation turns the object independently. Tracking markers are off
+by default, and camera frames stay in your browser.
 
 ## Run
 
@@ -10,7 +24,8 @@ Requires Node 22.12 or newer and a modern browser with WebGL, Web Workers, and
 camera support. Chrome or Edge on a desktop is the recommended starting point.
 
 ```sh
-cd ~/code/experiments/3d-tracker
+git clone https://github.com/shaal/LookAround.git
+cd LookAround
 npm install
 npm run dev
 ```
