@@ -152,13 +152,24 @@ mouse-controlled, independently of the selected steering mode and gaze rotation.
 | `Space`           | Pause/resume scene movement                                    |
 | `C`               | Reopen the center dot to set neutral, preserving the view      |
 | `R`               | Reset and frame the current model                              |
-| Drag              | Rotate manually; tracking yields and rebases on release        |
-| Scroll            | Zoom/dolly; tracking yields until scrolling stops              |
+| Left drag         | Orbit around the current focus, in every tracking mode        |
+| Right drag        | Pan in screen space; Shift/Ctrl/Cmd + left drag also pans      |
+| Scroll / middle drag | Zoom/dolly toward or away from the current focus            |
 | Sensitivity       | How much a small head/eye movement changes the camera          |
 | Smoothing         | Trade responsiveness for steadiness                            |
 | Center dead zone  | Neutral region where tracking makes no movement                |
 | Invert horizontal | Reverse horizontal steering for camera conventions/preferences |
 | Tracking markers  | Show/hide the head cross and red gaze estimate                 |
+
+Mouse navigation follows the [Three.js OrbitControls convention](https://threejs.org/docs/pages/OrbitControls.html)
+in every mode, including both Head camera perspectives. Panning shifts the
+camera and orbit focus together. Orbiting preserves an existing off-center aim;
+starting a drag does not recenter the object. Zoom keeps the lens and orientation
+unchanged. R resets the pan focus and frames the model. Mouse navigation temporarily
+holds tracking and anchors the resulting view on release; scrolling keeps that
+hold through a 200 ms quiet period. Overlapping scroll and drag gestures share
+one hold, so tracking cannot resume midway through a drag. Trackpad pinch and
+pixel-, line-, and page-based wheel deltas are normalized.
 
 Camera loss or a sample older than 250 ms freezes movement immediately. Returning
 after face loss reopens the center dot for another one-second hold. Hidden tabs stop sending

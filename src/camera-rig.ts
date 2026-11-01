@@ -24,6 +24,7 @@ export class CameraRig {
   mode: ViewMode = "orbit";
   private sphere = new Spherical(6.8, Math.PI / 2 - 0.08, 0.3);
   private base = new Quaternion();
+  private orbitAim = new Quaternion();
   private screenWindow: ScreenWindow;
   private screenCalibration = { ...DEFAULT_SCREEN_CALIBRATION };
   private perspective: HeadPerspective = "camera";
@@ -41,6 +42,8 @@ export class CameraRig {
 
   reset() {
     this.mode = "orbit";
+    this.target.set(0, 0.1, 0);
+    this.orbitAim.identity();
     this.camera.updateProjectionMatrix();
     this.transition = null;
     // Narrow canvases need extra distance to fit the model horizontally.
@@ -67,6 +70,7 @@ export class CameraRig {
           this.perspective,
         );
     } else {
+      this.orbitAim.identity();
       this.sphere.setFromVector3(this.camera.position.clone().sub(this.target));
       const to = new Quaternion().setFromRotationMatrix(
         new Matrix4().lookAt(this.camera.position, this.target, this.camera.up),
@@ -151,6 +155,7 @@ export class CameraRig {
   private applyOrbit() {
     this.camera.position.setFromSpherical(this.sphere).add(this.target);
     this.camera.lookAt(this.target);
+    this.camera.quaternion.multiply(this.orbitAim);
   }
 
   update(signal: Signal | null, dt: number) {
@@ -183,47 +188,65 @@ export class CameraRig {
   }
 
   drag(dx: number, dy: number) {
+    if (!dx && !dy) return;
     this.transition = null;
-    if (this.mode === "orbit") {
-      this.sphere.theta -= dx * 0.006;
-      this.sphere.phi = clamp(
-        this.sphere.phi - dy * 0.006,
-        0.12,
-        Math.PI - 0.12,
+    // Always orbit the shared focus, preserving any off-center tracking aim.
+    this.syncOrbit();
+    const height = this.viewport.height > 1 ? this.viewport.height : 600;
+    this.sphere.theta -= (2 * Math.PI * dx) / height;
+    this.sphere.phi = clamp(
+      this.sphere.phi - (2 * Math.PI * dy) / height,
+      0.12,
+      Math.PI - 0.12,
+    );
+    this.applyOrbit();
+    this.anchorNavigation();
+  }
+
+  pan(dx: number, dy: number) {
+    if (!dx && !dy) return;
+    this.transition = null;
+    const distance = this.camera.position.distanceTo(this.target);
+    const width = this.viewport.width > 1 ? this.viewport.width : 800;
+    const height = this.viewport.height > 1 ? this.viewport.height : 600;
+    // Read the actual lens, including Head camera's off-axis projection.
+    const projection = this.camera.projectionMatrix.elements;
+    const shift = new Vector3(1, 0, 0)
+      .applyQuaternion(this.camera.quaternion)
+      .multiplyScalar((-2 * dx * distance) / (projection[0] * width))
+      .addScaledVector(
+        new Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion),
+        (2 * dy * distance) / (projection[5] * height),
       );
-      this.applyOrbit();
-    } else {
-      this.base
-        .copy(this.camera.quaternion)
-        .multiply(
-          new Quaternion().setFromEuler(
-            new Euler(-dy * 0.004, -dx * 0.004, 0, "YXZ"),
-          ),
-        );
-      this.camera.quaternion.copy(this.base);
-      if (this.mode === "position") this.screenWindow.anchorManualView();
-    }
+    this.camera.position.add(shift);
+    this.target.add(shift);
+    this.syncOrbit();
+    this.anchorNavigation();
   }
 
   zoom(amount: number) {
-    if (this.mode === "orbit") {
-      this.sphere.radius = clamp(
-        this.sphere.radius * Math.exp(amount * 0.001),
-        1.8,
-        18,
-      );
-      this.applyOrbit();
-    } else {
-      // Dolly along the current viewing direction, keeping look mode's fixed
-      // position until the user explicitly scrolls again.
-      this.camera.position.addScaledVector(
-        this.camera.getWorldDirection(new Vector3()),
-        -amount * 0.003,
-      );
-      if (this.camera.position.distanceTo(this.target) > 18)
-        this.camera.position.sub(this.target).setLength(18).add(this.target);
-      if (this.mode === "position") this.screenWindow.anchorManualView();
-    }
+    if (!amount) return;
+    this.transition = null;
+    const offset = this.camera.position.clone().sub(this.target);
+    offset.setLength(
+      clamp(offset.length() * Math.exp(amount * 0.001), 1.8, 18),
+    );
+    this.camera.position.copy(this.target).add(offset);
+    this.syncOrbit();
+    this.anchorNavigation();
+  }
+
+  private syncOrbit() {
+    this.sphere.setFromVector3(this.camera.position.clone().sub(this.target));
+    const facing = new Quaternion().setFromRotationMatrix(
+      new Matrix4().lookAt(this.camera.position, this.target, this.camera.up),
+    );
+    this.orbitAim.copy(facing).invert().multiply(this.camera.quaternion);
+  }
+
+  private anchorNavigation() {
+    this.base.copy(this.camera.quaternion);
+    if (this.mode === "position") this.screenWindow.anchorManualView();
   }
 
   get azimuth() {

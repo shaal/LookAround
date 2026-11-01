@@ -509,6 +509,12 @@ h2 {
 #canvas-container canvas:active {
   cursor: grabbing;
 }
+#canvas-container canvas[data-navigation="pan"] {
+  cursor: move;
+}
+#canvas-container canvas[data-navigation="zoom"] {
+  cursor: ns-resize;
+}
 .stage-heading {
   position: absolute;
   left: 29px;
@@ -661,18 +667,24 @@ h2 {
   padding: 0 20px;
 }
 .mouse-hint {
-  color: #787a83;
+  color: #a0a1aa;
   font-size: 9px;
   display: flex;
-  gap: 9px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100% - 32px);
+  gap: 6px 9px;
   align-items: center;
 }
 .mouse-hint svg {
   width: 12px;
   height: 12px;
 }
-.mouse-hint > span {
+.mouse-hint > .hint-divider {
   color: #666872;
+}
+.mouse-gesture {
+  white-space: nowrap;
 }
 kbd {
   font-family: var(--mono);

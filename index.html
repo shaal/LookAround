@@ -255,8 +255,14 @@
             </button>
           </div>
           <p class="mouse-hint">
-            <span data-icon="mouse"></span> Drag to rotate <span>·</span> Scroll
-            to zoom <span>·</span> <kbd>R</kbd> reset
+            <span data-icon="mouse"></span>
+            <span class="mouse-gesture">Drag: orbit</span
+            ><span class="hint-divider" aria-hidden="true">·</span>
+            <span class="mouse-gesture">Shift-drag: pan</span
+            ><span class="hint-divider" aria-hidden="true">·</span>
+            <span class="mouse-gesture">Scroll: zoom</span
+            ><span class="hint-divider" aria-hidden="true">·</span>
+            <span class="mouse-gesture"><kbd>R</kbd> reset</span>
           </p>
         </div>
         <div class="stage-bottom">
@@ -785,11 +791,22 @@
         the recommended starting point. Use Invert horizontal if your camera's
         direction feels reversed.
       </p>
+      <div class="help-mode">
+        <span data-icon="mouse"></span>
+        <div>
+          <h3>Mouse navigation</h3>
+          <p>
+            Same controls in every mode: left-drag to orbit, right-drag or Shift
+            + left-drag to pan, scroll or middle-drag to zoom. Ctrl/Cmd +
+            left-drag also pans. R frames the model. Tracking yields while you
+            navigate and resumes from the resulting view.
+          </p>
+        </div>
+      </div>
       <p class="muted small">
-        Drag or scroll takes manual control. Space pauses movement. C sets a new
-        neutral by reopening the dot without resetting the view. Lost tracking
-        freezes the camera; returning to the camera asks you to hold still
-        again. Nothing is recorded or uploaded.
+        Space pauses movement. C sets a new neutral by reopening the dot without
+        resetting the view. Lost tracking freezes the camera; returning to the
+        camera asks you to hold still again. Nothing is recorded or uploaded.
       </p>
       <a
         href="https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js"

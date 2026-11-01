@@ -27,6 +27,7 @@ import { CameraRig } from "./camera-rig";
 import { ObjectRotation, type GazeRotationMode } from "./object-rotation";
 import type { Signal } from "./tracking-math";
 import { boxCorners, spatialGeometry } from "./spatial-geometry";
+import { NavigationControls } from "./navigation-controls";
 
 function disposeModel(root: Group) {
   const textures = new Set<Texture>();
@@ -74,7 +75,7 @@ export class Viewer {
     this.renderer.toneMappingExposure = 1.15;
     this.renderer.domElement.setAttribute(
       "aria-label",
-      "Interactive 3D model. Drag to rotate; scroll to zoom.",
+      "Interactive 3D model. Left drag orbits; right drag or Shift + left drag pans; scroll or middle drag zooms. R resets the view. Same controls in every tracking mode.",
     );
     this.renderer.domElement.tabIndex = 0;
     this.container.appendChild(this.renderer.domElement);
@@ -130,48 +131,8 @@ export class Viewer {
     new ResizeObserver(resize).observe(container);
     window.addEventListener("resize", resize);
     resize();
-    let dragging = false,
-      lastX = 0,
-      lastY = 0;
-    const canvas = this.renderer.domElement;
-    canvas.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;
-      dragging = true;
-      lastX = event.clientX;
-      lastY = event.clientY;
-      canvas.setPointerCapture(event.pointerId);
-      this.onManual(true);
-    });
-    canvas.addEventListener("pointermove", (event) => {
-      if (!dragging) return;
-      this.rig.drag(event.clientX - lastX, event.clientY - lastY);
-      lastX = event.clientX;
-      lastY = event.clientY;
-    });
-    const release = () => {
-      if (dragging) {
-        dragging = false;
-        this.rig.rebase();
-        this.onManual(false);
-      }
-    };
-    canvas.addEventListener("pointerup", release);
-    canvas.addEventListener("pointercancel", release);
-    canvas.addEventListener("lostpointercapture", release);
-    let wheelTimer: ReturnType<typeof setTimeout>;
-    canvas.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-        this.onManual(true);
-        this.rig.zoom(event.deltaY);
-        clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(() => {
-          this.rig.rebase();
-          this.onManual(false);
-        }, 200);
-      },
-      { passive: false },
+    new NavigationControls(this.renderer.domElement, this.rig, (active) =>
+      this.onManual(active),
     );
   }
 
