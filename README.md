@@ -136,12 +136,20 @@ rotation can also change the model's visible outline.
 without a camera, including the animated reference dot. It is visibly labelled and is
 not a live tracking result.
 
+**Tracking markers** are on by default after the reference hold. The white/cyan
+three-axis cross shows head aim: translation moves it, rotation tilts its axes,
+and approaching the screen enlarges it. The red circle combines head aim and
+iris direction into a gaze estimate, not calibrated screen coordinates. Blinks
+hide the circle; missing or stale head data hides both. Dashed markers indicate
+an aim outside the window. Markers stay live while scene motion is paused or
+mouse-controlled, independently of the selected steering mode and gaze rotation.
+
 ## Controls
 
 | Control           | Effect                                                         |
 | ----------------- | -------------------------------------------------------------- |
 | `1` / `2` / `3`   | Orbit object / Look around / Head camera                       |
-| `Space`           | Pause/resume tracking                                          |
+| `Space`           | Pause/resume scene movement                                    |
 | `C`               | Reopen the center dot to set neutral, preserving the view      |
 | `R`               | Reset and frame the current model                              |
 | Drag              | Rotate manually; tracking yields and rebases on release        |
@@ -150,6 +158,7 @@ not a live tracking result.
 | Smoothing         | Trade responsiveness for steadiness                            |
 | Center dead zone  | Neutral region where tracking makes no movement                |
 | Invert horizontal | Reverse horizontal steering for camera conventions/preferences |
+| Tracking markers  | Show/hide the head cross and red gaze estimate                 |
 
 Camera loss or a sample older than 250 ms freezes movement immediately. Returning
 after face loss reopens the center dot for another one-second hold. Hidden tabs stop sending

@@ -532,8 +532,52 @@
         <div class="tracking-footer">
           <kbd>Space</kbd> pause <span>·</span> <kbd>C</kbd> recenter
         </div>
+        <div class="tracking-marker-controls">
+          <label
+            class="toggle-row"
+            for="tracking-markers"
+            title="Live after centering, including while the scene is paused. Dashed markers point outside the window."
+            ><span>Tracking markers</span
+            ><input
+              type="checkbox"
+              id="tracking-markers"
+              role="switch"
+              checked /><span class="toggle-visual" aria-hidden="true"></span
+          ></label>
+          <p class="tracking-marker-legend">
+            <span
+              ><svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M2 10H18M10 2V18" />
+                <path class="marker-depth" d="M5 15L15 5" /></svg
+              >Head pose</span
+            >
+            <span
+              ><svg class="marker-gaze" viewBox="0 0 20 20" aria-hidden="true">
+                <circle cx="10" cy="10" r="6" /></svg
+              >Gaze estimate</span
+            >
+          </p>
+        </div>
       </aside>
     </main>
+    <svg
+      id="tracking-overlay"
+      class="tracking-overlay"
+      aria-hidden="true"
+      hidden
+    >
+      <g data-head-marker>
+        <path data-head-shadow class="marker-shadow" />
+        <path data-head-planar class="marker-planar" />
+        <path data-head-depth class="marker-depth" />
+        <circle data-head-center r="2" class="marker-head-center" />
+      </g>
+      <g data-gaze-marker hidden>
+        <circle r="10" class="marker-shadow" />
+        <circle r="10" class="marker-gaze" />
+        <circle r="1.8" class="marker-gaze-center" />
+      </g>
+    </svg>
     <dialog
       id="card-scan-dialog"
       class="card-scan-dialog"

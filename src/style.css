@@ -1175,6 +1175,70 @@ kbd {
 .tracking-footer > span {
   margin: 0 2px;
 }
+.tracking-marker-controls {
+  grid-column: 1 / -1;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.tracking-marker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  font-size: 10px;
+  color: #aaaab3;
+}
+.tracking-marker-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tracking-marker-legend svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #eff6f8;
+  stroke-width: 1.6px;
+  stroke-linecap: round;
+}
+.tracking-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 15;
+  pointer-events: none;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tracking-overlay .marker-shadow {
+  stroke: #101216;
+  stroke-width: 5px;
+}
+.marker-planar {
+  stroke: #eff6f8;
+}
+.tracking-marker-legend .marker-depth,
+.tracking-overlay .marker-depth {
+  stroke: #86d4e3;
+}
+.marker-head-center {
+  fill: #eff6f8;
+}
+.tracking-marker-legend .marker-gaze,
+.tracking-overlay .marker-gaze {
+  stroke: #ff6b77;
+}
+.marker-gaze-center {
+  fill: #ff6b77;
+}
+.tracking-overlay [data-offscreen="true"] path,
+.tracking-overlay [data-offscreen="true"] .marker-gaze {
+  stroke-dasharray: 3 3;
+}
 dialog {
   color: #d2d0ce;
   background: #212226;

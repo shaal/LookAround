@@ -20,6 +20,7 @@ import { ReferenceCapture } from "./reference-capture";
 import { SpatialOverview, type OverviewState } from "./spatial-overview";
 import { smoothGazeSignal, type GazeRotationMode } from "./object-rotation";
 import { CardScan } from "./card-scan";
+import { TrackingMarkers } from "./tracking-markers";
 import {
   BANK_CARD_WIDTH_CM,
   DEFAULT_SCREEN_CALIBRATION,
@@ -67,6 +68,13 @@ try {
   throw error;
 }
 const spatialOverview = new SpatialOverview($("spatial-overview"));
+const trackingOverlay =
+  document.querySelector<SVGSVGElement>("#tracking-overlay")!;
+const trackingMarkers = new TrackingMarkers(trackingOverlay);
+// A fullscreen element is painted above the rest of the document.
+document.addEventListener("fullscreenchange", () => {
+  (document.fullscreenElement ?? document.body).append(trackingOverlay);
+});
 $("overview-mode").addEventListener("click", () => setMode("position"));
 
 const tracker = new FaceTracker($<HTMLVideoElement>("camera-video"));
@@ -801,6 +809,9 @@ $<HTMLInputElement>("invert").addEventListener("change", (event) => {
   invert = (event.target as HTMLInputElement).checked;
   rebase();
 });
+$<HTMLInputElement>("tracking-markers").addEventListener("change", (event) => {
+  trackingMarkers.setEnabled((event.target as HTMLInputElement).checked);
+});
 
 async function loadModel(asset: string | File, key?: string) {
   const generation = ++loadGeneration;
@@ -984,6 +995,21 @@ function animate(now: number) {
     };
     if (reference.pending) reference.observe(sample, now);
   }
+  // These show live input even while scene motion is paused or mouse-controlled.
+  trackingMarkers.update(
+    inputMode !== "off" &&
+      !document.hidden &&
+      !reference.pending &&
+      !$<HTMLDialogElement>("card-dialog").open &&
+      !cardScan.active
+      ? sample
+      : null,
+    neutral,
+    now,
+    dt,
+    screenCalibration,
+    neutralEyeDistanceCm,
+  );
   const allowed =
     !paused &&
     !manual &&
