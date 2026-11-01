@@ -136,7 +136,8 @@ rotation can also change the model's visible outline.
 without a camera, including the animated reference dot. It is visibly labelled and is
 not a live tracking result.
 
-**Tracking markers** are on by default after the reference hold. The white/cyan
+**Tracking markers** are off by default; switch them on to inspect live input
+after the reference hold. The white/cyan
 three-axis cross shows head aim: translation moves it, rotation tilts its axes,
 and approaching the screen enlarges it. The red circle combines head aim and
 iris direction into a gaze estimate, not calibrated screen coordinates. Blinks

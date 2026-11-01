@@ -142,7 +142,7 @@ export function headCrossPaths(orientation: Quaternion, scale: number) {
 }
 
 export class TrackingMarkers {
-  private enabled = true;
+  private enabled = false;
   private head: MarkerPoint | null = null;
   private gaze: MarkerPoint | null = null;
   private orientation = new Quaternion();
@@ -164,6 +164,7 @@ export class TrackingMarkers {
     this.depth = svg.querySelector("[data-head-depth]")!;
     this.shadow = svg.querySelector("[data-head-shadow]")!;
     this.center = svg.querySelector("[data-head-center]")!;
+    this.hide();
   }
 
   setEnabled(enabled: boolean) {

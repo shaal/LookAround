@@ -199,6 +199,9 @@ test("renderer hides stale input and blinks, and reappears cleanly after togglin
   const update = (now: number) =>
     markers.update(s, n, now, 1 / 60, DEFAULT_SCREEN_CALIBRATION, 46);
   update(1050);
+  assert.equal(svg.attrs.has("hidden"), true);
+  markers.setEnabled(true);
+  update(1050);
   assert.equal(svg.attrs.has("hidden"), false);
   assert.equal(elements.get("[data-gaze-marker]")!.attrs.has("hidden"), false);
   s.eyesValid = false;
