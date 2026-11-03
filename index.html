@@ -1,14 +1,54 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#141518" />
     <meta
       name="description"
-      content="Explore 3D objects with a turn of your head. A local, camera-controlled GLB playground with experimental eye direction."
+      content="Explore 3D models with head tracking, experimental eye direction, or familiar mouse controls. Runs in your browser."
     />
     <title>LookAround — a head-controlled 3D playground</title>
+    <link rel="canonical" href="https://lookaround.shaal.dev/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LookAround" />
+    <meta property="og:url" content="https://lookaround.shaal.dev/" />
+    <meta
+      property="og:title"
+      content="LookAround — a head-controlled 3D playground"
+    />
+    <meta
+      property="og:description"
+      content="Explore 3D models with head tracking, experimental eye direction, or familiar mouse controls. Runs in your browser."
+    />
+    <meta
+      property="og:image"
+      content="https://lookaround.shaal.dev/social/lookaround-share-v1.png"
+    />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1731" />
+    <meta property="og:image:height" content="909" />
+    <meta
+      property="og:image:alt"
+      content="LookAround. Move your head. Change your perspective. A floating teal sci-fi helmet with a gold orbit on a dark background."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="LookAround — a head-controlled 3D playground"
+    />
+    <meta
+      name="twitter:description"
+      content="Explore 3D models with head tracking, experimental eye direction, or familiar mouse controls. Runs in your browser."
+    />
+    <meta
+      name="twitter:image"
+      content="https://lookaround.shaal.dev/social/lookaround-share-v1.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="LookAround. Move your head. Change your perspective. A floating teal sci-fi helmet with a gold orbit on a dark background."
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
@@ -544,10 +584,10 @@
             for="tracking-markers"
             title="Live after centering, including while the scene is paused. Dashed markers point outside the window."
             ><span>Tracking markers</span
-            ><input
-              type="checkbox"
-              id="tracking-markers"
-              role="switch" /><span class="toggle-visual" aria-hidden="true"></span
+            ><input type="checkbox" id="tracking-markers" role="switch" /><span
+              class="toggle-visual"
+              aria-hidden="true"
+            ></span
           ></label>
           <p class="tracking-marker-legend">
             <span

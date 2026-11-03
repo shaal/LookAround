@@ -12,7 +12,8 @@ simulated tracking.
 
 ![LookAround interface displaying the Damaged Helmet model, with the model library, 3D setup diagram, and tracking controls](docs/images/lookaround-helmet.png)
 
-The Damaged Helmet sample in these screenshots is by ctxwing / theblueturtle\_.
+The Damaged Helmet sample shown in screenshots and used as the social preview's
+reference is by ctxwing / theblueturtle\_.
 See [model credits and licenses](#sample-models-and-credits).
 
 ![Head camera mode with the helmet and a diagram showing the viewer, screen, and model](docs/images/lookaround-head-camera.png)
@@ -231,6 +232,10 @@ npm run deploy
 This builds the app and uploads `dist/`, including the sample models, decoders,
 and local face-tracking assets. `wrangler.toml` configures the custom domain;
 Cloudflare manages its DNS record and HTTPS certificate.
+
+Social previews use static Open Graph and Twitter Card tags in `index.html`,
+with a public PNG at `/social/lookaround-share-v1.png`. The artwork's generation
+prompt is recorded in [docs/share-image-prompt.md](docs/share-image-prompt.md).
 
 ## Validation
 
