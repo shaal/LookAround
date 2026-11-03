@@ -39,19 +39,6 @@ Downloads are cached under ignored `public/` directories. `npm run setup` retrie
 asset preparation when needed. Runtime camera processing uses local assets.
 Google Fonts is optional; system fonts are used if unavailable.
 
-### Deploy
-
-The live demo is hosted on Cloudflare Workers at **https://lookaround.shaal.dev**.
-With Wrangler signed into the Cloudflare account that owns `shaal.dev`, run:
-
-```sh
-npm run deploy
-```
-
-This builds the app and uploads `dist/`, including the sample models, decoders,
-and local face-tracking assets. `wrangler.toml` configures the custom domain;
-Cloudflare manages its DNS record and HTTPS certificate.
-
 1. Choose a sample, drop a local `.glb`, or enter a direct, CORS-enabled model URL.
 2. Click **Enable camera**, allow access, and look at the large dot in the middle
    of the screen. **Hold still for one second.** The red dot turns green and a
@@ -231,6 +218,19 @@ The app links to each downloaded model's complete upstream README.
 This project's MIT license covers its own code, not those separately licensed assets.
 The pinned OpenCV.js package is Apache-2.0; setup copies its license beside the
 local runtime at `/vision/opencv.LICENSE`.
+
+## Deploy
+
+The live demo is hosted on Cloudflare Workers at **https://lookaround.shaal.dev**.
+With Wrangler signed into the Cloudflare account that owns `shaal.dev`, run:
+
+```sh
+npm run deploy
+```
+
+This builds the app and uploads `dist/`, including the sample models, decoders,
+and local face-tracking assets. `wrangler.toml` configures the custom domain;
+Cloudflare manages its DNS record and HTTPS certificate.
 
 ## Validation
 
