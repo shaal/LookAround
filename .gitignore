@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.wrangler/
 public/vision/
 public/models/
 public/decoders/

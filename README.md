@@ -7,6 +7,9 @@ or experimental eye direction. Explore a model with your webcam, use familiar
 orbit/pan/zoom mouse controls, or try simulated tracking without a camera.
 Built with TypeScript, Three.js, and MediaPipe; no account or native app required.
 
+**[Open the live demo](https://lookaround.shaal.dev)** — use your webcam or try
+simulated tracking.
+
 ![LookAround interface displaying the Damaged Helmet model, with the model library, 3D setup diagram, and tracking controls](docs/images/lookaround-helmet.png)
 
 The Damaged Helmet sample in these screenshots is by ctxwing / theblueturtle\_.
@@ -35,6 +38,19 @@ four sample models, their credits, the face model, matching WASM, and GLB decode
 Downloads are cached under ignored `public/` directories. `npm run setup` retries
 asset preparation when needed. Runtime camera processing uses local assets.
 Google Fonts is optional; system fonts are used if unavailable.
+
+### Deploy
+
+The live demo is hosted on Cloudflare Workers at **https://lookaround.shaal.dev**.
+With Wrangler signed into the Cloudflare account that owns `shaal.dev`, run:
+
+```sh
+npm run deploy
+```
+
+This builds the app and uploads `dist/`, including the sample models, decoders,
+and local face-tracking assets. `wrangler.toml` configures the custom domain;
+Cloudflare manages its DNS record and HTTPS certificate.
 
 1. Choose a sample, drop a local `.glb`, or enter a direct, CORS-enabled model URL.
 2. Click **Enable camera**, allow access, and look at the large dot in the middle
