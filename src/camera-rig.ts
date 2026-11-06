@@ -22,6 +22,8 @@ export type ViewMode = "orbit" | "look" | "position";
 export class CameraRig {
   readonly target = new Vector3(0, 0.1, 0);
   mode: ViewMode = "orbit";
+  private minDistance = 1.8;
+  private maxDistance = 18;
   private sphere = new Spherical(6.8, Math.PI / 2 - 0.08, 0.3);
   private base = new Quaternion();
   private orbitAim = new Quaternion();
@@ -229,9 +231,37 @@ export class CameraRig {
     this.transition = null;
     const offset = this.camera.position.clone().sub(this.target);
     offset.setLength(
-      clamp(offset.length() * Math.exp(amount * 0.001), 1.8, 18),
+      clamp(
+        offset.length() * Math.exp(amount * 0.001),
+        this.minDistance,
+        this.maxDistance,
+      ),
     );
     this.camera.position.copy(this.target).add(offset);
+    this.syncOrbit();
+    this.anchorNavigation();
+  }
+
+  setDistanceLimits(min: number, max: number) {
+    this.minDistance = min;
+    this.maxDistance = max;
+  }
+
+  /**
+   * Fly the camera and its focus together. W/S follow the exact view direction,
+   * including up or down; A/D strafe along the view's right; Q/E stay vertical.
+   */
+  move(step: Vector3) {
+    if (!step.lengthSq()) return;
+    this.transition = null;
+    const forward = new Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    const right = new Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    const shift = right
+      .multiplyScalar(step.x)
+      .addScaledVector(this.camera.up, step.y)
+      .addScaledVector(forward, step.z);
+    this.camera.position.add(shift);
+    this.target.add(shift);
     this.syncOrbit();
     this.anchorNavigation();
   }
