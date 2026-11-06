@@ -2,8 +2,8 @@
 
 Move your head. Change your perspective.
 
-A local 3D playground for GLB models, controlled by head position, head rotation,
-or experimental eye direction. Explore a model with your webcam, use familiar
+A local 3D playground for GLB models and Gaussian splat environments, controlled
+by head position, head rotation, or experimental eye direction. Explore a model with your webcam, use familiar
 orbit/pan/zoom mouse controls, or try simulated tracking without a camera.
 Built with TypeScript, Three.js, and MediaPipe; no account or native app required.
 
@@ -40,7 +40,9 @@ Downloads are cached under ignored `public/` directories. `npm run setup` retrie
 asset preparation when needed. Runtime camera processing uses local assets.
 Google Fonts is optional; system fonts are used if unavailable.
 
-1. Choose a sample, drop a local `.glb`, or enter a direct, CORS-enabled model URL.
+1. Choose a sample object or splat environment, drop a local `.glb` or splat file,
+   or enter a direct, CORS-enabled model URL or a `superspl.at/view?id=…` link.
+   The address bar keeps `?scene=<Key>` so a demo can be shared.
 2. Click **Enable camera**, allow access, and look at the large dot in the middle
    of the screen. **Hold still for one second.** The red dot turns green and a
    ring fills while your head and eyes stay steady. Movement resets it. Completing
@@ -168,7 +170,9 @@ mouse-controlled, independently of the selected steering mode and gaze rotation.
 
 | Control           | Effect                                                         |
 | ----------------- | -------------------------------------------------------------- |
-| `1` / `2` / `3`   | Orbit object / Look around / Head camera                       |
+| `1` / `2` / `3`   | Orbit object / Look around / Head camera (no orbit in splats)  |
+| `W` `A` `S` `D`   | Fly along the view direction / strafe; works in every mode     |
+| `Q` / `E`         | Sink / rise                                                    |
 | `Space`           | Pause/resume scene movement                                    |
 | `C`               | Reopen the center dot to set neutral, preserving the view      |
 | `R`               | Reset and frame the current model                              |
@@ -202,6 +206,30 @@ Custom files must be binary `.glb`, preferably self-contained. Draco, Meshopt an
 KTX2/Basis decoders are configured. Remote URLs must return a GLB and permit CORS;
 download pages are not model URLs. Files over 150 MB are rejected. Animation clips
 play automatically. A failed load preserves the previously visible model.
+
+## Gaussian splat environments
+
+Splat scenes are deep, so head parallax is easy to see. They open in Head
+camera from the publisher's start view, at "life size" (one scene unit = one
+metre behind the screen); the **World scale** slider changes that. Rendering
+uses [Spark](https://sparkjs.dev) (`@sparkjsdev/spark`), loaded only when a splat
+is opened. Local and remote `.ply`, `.spz`, `.splat`, `.ksplat` and `.sog` files
+work. SuperSplat publishes scenes as loose SOG `.webp` parts with
+`settings.json`; `src/splat-source.ts` fetches them from the public CDN, zips
+them into one `.sog` in the browser, and reads the start camera. For splats, the
+overview diagram shows sampled scene points inside the viewing wedge on a log
+depth scale.
+
+| Scene | SuperSplat author, license |
+| --- | --- |
+| [Ludlow, Quality Square](https://superspl.at/view?id=ca36efcc) | ijenko, CC BY |
+| [Bookstore](https://superspl.at/view?id=ceeadeba) | ethan3111, CC BY |
+| [Reading Room](https://superspl.at/view?id=9d370db9) | ethan3111, CC BY |
+| [Coffee shop](https://superspl.at/view?id=6a0c3ccf) | ethan3111, CC BY |
+| [The Pantheon Interior](https://superspl.at/view?id=dac6e508) | artfletch, CC BY |
+| [Cochem Imperial Castle](https://superspl.at/view?id=9b18007e) | dok11, CC BY |
+
+These scenes stream from SuperSplat's CDN at runtime and are not redistributed here.
 
 ## Sample models and credits
 
@@ -299,7 +327,8 @@ See [docs/research.md](docs/research.md) for sources and design decisions.
 ## Structure
 
 ```text
-src/viewer.ts          GLB loading, lighting, animation, disposal, mouse controls
+src/viewer.ts          GLB and splat loading, lighting, animation, disposal, mouse controls
+src/splat-source.ts    splat formats, SuperSplat fetch, start-camera placement
 src/object-rotation.ts gaze-driven rotation of the centered model
 src/camera-rig.ts      orbit / fixed-position look / head-position camera behavior
 src/screen-window.ts   physically scaled XYZ view and fixed-plane off-axis projection

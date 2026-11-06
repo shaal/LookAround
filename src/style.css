@@ -2290,3 +2290,12 @@ dialog > .text-link {
     top: calc(50% + 85px);
   }
 }
+.more-models > .model-list {
+  margin-top: 12px;
+}
+.overview-tick {
+  fill: #8a8f99;
+  font-size: 8px;
+  text-anchor: start;
+  stroke-width: 2px;
+}

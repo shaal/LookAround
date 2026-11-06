@@ -3,6 +3,7 @@ import { Euler, Quaternion, Vector3 } from "three";
 import { icon, renderIcons } from "./icons";
 import { FaceTracker } from "./tracker";
 import { Viewer } from "./viewer";
+import { isSplatName, superSplatBase } from "./splat-source";
 import {
   controlSignal,
   isFresh,
@@ -32,10 +33,14 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 renderIcons();
 
-const models: Record<
-  string,
-  { name: string; subtitle: string; credit: string }
-> = {
+type Entry = {
+  name: string;
+  subtitle: string;
+  credit: string;
+  /** Splat scenes load from SuperSplat; GLBs load from /models. */
+  scene?: string;
+};
+const models: Record<string, Entry> = {
   DamagedHelmet: {
     name: "Damaged helmet",
     subtitle: "Turn your head. Find a new angle.",
@@ -56,11 +61,52 @@ const models: Record<
     subtitle: "The original test subject. Still looking good.",
     credit: "Sony · SCEA Shared Source License 1.0",
   },
+  Bookstore: {
+    name: "Bookstore",
+    subtitle: "Lean in. The aisles open up.",
+    credit: "ethan3111 on SuperSplat · CC BY",
+    scene: "ceeadeba",
+  },
+  ReadingRoom: {
+    name: "Reading room",
+    subtitle: "Move your head. The shelves slide past each other.",
+    credit: "ethan3111 on SuperSplat · CC BY",
+    scene: "9d370db9",
+  },
+  CoffeeShop: {
+    name: "Coffee shop",
+    subtitle: "Step to the side. Look past the counter.",
+    credit: "ethan3111 on SuperSplat · CC BY",
+    scene: "6a0c3ccf",
+  },
+  Pantheon: {
+    name: "Pantheon interior",
+    subtitle: "A big room. Look up into the dome.",
+    credit: "artfletch on SuperSplat · CC BY",
+    scene: "dac6e508",
+  },
+  Ludlow: {
+    name: "Ludlow, Quality Square",
+    subtitle: "A real street. Lean in to look down the lane.",
+    credit: "ijenko on SuperSplat · CC BY",
+    scene: "ca36efcc",
+  },
+  Cochem: {
+    name: "Cochem Imperial Castle",
+    subtitle: "A castle on a hill. Deep parallax across the valley.",
+    credit: "dok11 on SuperSplat · CC BY",
+    scene: "9b18007e",
+  },
 };
+const modelSource = (key: string) =>
+  models[key].scene
+    ? `https://superspl.at/view?id=${models[key].scene}`
+    : `/models/${key}.glb`;
 
 let viewer: Viewer;
 try {
   viewer = new Viewer($("canvas-container"));
+if (import.meta.env.DEV) Object.assign(window, { lookaround: viewer });
 } catch (error) {
   $("viewer-message").textContent =
     "3D rendering is unavailable. Enable hardware acceleration or try another browser.";
@@ -207,7 +253,11 @@ function clearMotion() {
   filteredEyes = { x: 0, y: 0 };
 }
 
+// Orbiting a point inside an environment makes no sense; splats start in Head camera.
+const defaultMode = (): ViewMode =>
+  viewer.isEnvironment ? "position" : "orbit";
 function setMode(mode: ViewMode) {
+  if (mode === "orbit" && viewer.isEnvironment) return;
   viewer.rig.setMode(mode);
   rebase();
   for (const value of ["orbit", "look", "position"]) {
@@ -761,7 +811,7 @@ document
 
 function resetView() {
   viewer.resetView();
-  setMode("orbit");
+  setMode(defaultMode());
   rebase();
   toast("View reset");
 }
@@ -818,7 +868,17 @@ async function loadModel(asset: string | File, key?: string) {
   const message = $("viewer-message");
   message.hidden = false;
   message.classList.remove("error");
-  message.innerHTML = '<span class="spinner"></span> Opening the object…';
+  const status = (text: string) => {
+    if (generation !== loadGeneration) return;
+    message.innerHTML = '<span class="spinner"></span> ';
+    message.append(text);
+  };
+  const splat =
+    asset instanceof File
+      ? isSplatName(asset.name)
+      : superSplatBase(asset) !== null || isSplatName(asset);
+  status(splat ? "Opening the scene…" : "Opening the object…");
+  viewer.onProgress = status;
   try {
     const info = await viewer.load(asset);
     if (!info || generation !== loadGeneration) return;
@@ -826,21 +886,30 @@ async function loadModel(asset: string | File, key?: string) {
     const name = key
       ? models[key].name
       : asset instanceof File
-        ? asset.name.replace(/\.glb$/i, "")
-        : new URL(asset).pathname.split("/").pop() || "Custom model";
+        ? asset.name.replace(/\.(glb|ply|spz|splat|ksplat|sog)$/i, "")
+        : superSplatBase(asset)
+          ? "SuperSplat scene"
+          : new URL(asset).pathname.split("/").pop() || "Custom model";
     $("model-name").textContent = name;
     $("model-subtitle").textContent = key
       ? models[key].subtitle
       : "Your object. A new perspective.";
+    $("model-format").textContent =
+      info.kind === "splat" ? "GAUSSIAN SPLAT" : "GLB 2.0";
     $("geometry-info").textContent =
-      `${info.triangles.toLocaleString()} TRIANGLES · ${(info.bytes / 1024 / 1024).toFixed(1)} MB`;
+      info.kind === "splat"
+        ? `${info.splats.toLocaleString()} SPLATS · ${(info.bytes / 1024 / 1024).toFixed(1)} MB`
+        : `${info.triangles.toLocaleString()} TRIANGLES · ${(info.bytes / 1024 / 1024).toFixed(1)} MB`;
+    $("world-scale-row").hidden = info.kind !== "splat";
     $("canvas-container").dataset.model = name;
     $("canvas-container").dataset.triangles = String(info.triangles);
     const credit = $<HTMLAnchorElement>("model-credit");
     credit.hidden = !key;
     if (key) {
       credit.textContent = `${models[key].credit} ↗`;
-      credit.href = `/models/licenses/${key}.md`;
+      credit.href = models[key].scene
+        ? `https://superspl.at/view?id=${models[key].scene}`
+        : `/models/licenses/${key}.md`;
     }
     document
       .querySelectorAll<HTMLButtonElement>("[data-model]")
@@ -849,14 +918,18 @@ async function loadModel(asset: string | File, key?: string) {
         b.classList.toggle("selected", selected);
         b.setAttribute("aria-pressed", String(selected));
       });
-    setMode("orbit");
+    $("mode-orbit").hidden = viewer.isEnvironment;
+    if (key && $("more-models").querySelector(`[data-model="${key}"]`))
+      $<HTMLDetailsElement>("more-models").open = true;
+    if (!key) shareKey(null);
+    setMode(defaultMode());
     rebase();
   } catch (error) {
     if (generation !== loadGeneration) return;
     const reason = error instanceof Error ? error.message : String(error);
     message.classList.add("error");
     message.textContent = reason.includes("fetch")
-      ? "Could not download the GLB. Check the URL and CORS permissions, or drop a local file."
+      ? "Could not download the file. Check the URL and CORS permissions, or drop a local file."
       : `Could not open model: ${reason}`;
   }
 }
@@ -864,18 +937,38 @@ async function loadModel(asset: string | File, key?: string) {
 document.querySelectorAll<HTMLButtonElement>("[data-model]").forEach((button) =>
   button.addEventListener("click", () => {
     const key = button.dataset.model!;
-    void loadModel(`/models/${key}.glb`, key);
+    void loadModel(modelSource(key), key);
+    shareKey(key);
   }),
 );
+// Keep the current demo in the address bar so the link can be shared.
+function shareKey(key: string | null) {
+  const url = new URL(location.href);
+  if (key && key !== "DamagedHelmet") url.searchParams.set("scene", key);
+  else url.searchParams.delete("scene");
+  if (url.href === location.href) return;
+  // Custom files and URLs cannot be shared, so they replace rather than add history.
+  if (key) history.pushState({ key }, "", url);
+  else history.replaceState(null, "", url);
+}
+function keyFromUrl() {
+  const key = new URLSearchParams(location.search).get("scene");
+  return key && key in models ? key : "DamagedHelmet";
+}
+window.addEventListener("popstate", () => {
+  const key = keyFromUrl();
+  void loadModel(modelSource(key), key);
+});
 $("upload-button").addEventListener("click", () =>
   $<HTMLInputElement>("file-input").click(),
 );
 async function loadFile(file: File) {
-  if (!file.name.toLowerCase().endsWith(".glb")) {
-    toast("Choose a binary .glb model.");
+  const splat = isSplatName(file.name);
+  if (!splat && !file.name.toLowerCase().endsWith(".glb")) {
+    toast("Choose a .glb model or a .ply, .spz, .splat, .ksplat or .sog splat.");
     return;
   }
-  if (file.size > 150 * 1024 * 1024) {
+  if (!splat && file.size > 150 * 1024 * 1024) {
     toast("Please choose a model smaller than 150 MB.");
     return;
   }
@@ -960,6 +1053,40 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "1") setMode("orbit");
   if (event.key === "2") setMode("look");
   if (event.key === "3") setMode("position");
+});
+// WASD walks through the scene; Q/E sink and rise. Works in every view mode.
+const held = new Set<string>();
+const updateMove = () =>
+  viewer.setMoveInput(
+    Number(held.has("KeyD")) - Number(held.has("KeyA")),
+    Number(held.has("KeyE")) - Number(held.has("KeyQ")),
+    Number(held.has("KeyW")) - Number(held.has("KeyS")),
+  );
+document.addEventListener("keydown", (event) => {
+  if (
+    !["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE"].includes(event.code) ||
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey
+  )
+    return;
+  held.add(event.code);
+  updateMove();
+});
+document.addEventListener("keyup", (event) => {
+  if (held.delete(event.code)) updateMove();
+});
+window.addEventListener("blur", () => {
+  held.clear();
+  updateMove();
+});
+$<HTMLInputElement>("world-scale").addEventListener("input", (event) => {
+  const value = 2 ** Number((event.target as HTMLInputElement).value);
+  $("world-scale-value").textContent =
+    value >= 0.995 && value <= 1.005 ? "Life size" : `${value.toFixed(2)}×`;
+  viewer.setWorldScale(value);
 });
 document.addEventListener("visibilitychange", () => {
   viewer.rig.freeze();
@@ -1124,4 +1251,7 @@ function animate(now: number) {
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
-void loadModel("/models/DamagedHelmet.glb", "DamagedHelmet");
+{
+  const key = keyFromUrl();
+  void loadModel(modelSource(key), key);
+}

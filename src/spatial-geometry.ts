@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Matrix4, Quaternion, Vector3 } from "three";
 import type { ScreenFrame } from "./screen-window";
 
 export interface SpatialGeometry {
@@ -8,6 +8,8 @@ export interface SpatialGeometry {
   center: Vector3;
   eyeToObjectCm: number;
   depthScale: number | null;
+  /** Environments only: sampled scene points seen through the screen. */
+  scene?: EnvironmentView;
 }
 
 /** Intersect an eye-to-object ray with the physical display plane (Z = 0). */
@@ -95,4 +97,113 @@ export function boxCorners(min: Vector3, max: Vector3): Vector3[] {
         i & 1 ? max.z : min.z,
       ),
   );
+}
+
+export interface ScenePoint {
+  /** Where the eye-to-point ray crosses the screen, in cm from its centre. */
+  screenX: number;
+  screenY: number;
+  /** Distance behind the screen plane, in cm. */
+  depthCm: number;
+  color: string;
+}
+
+export interface EnvironmentView {
+  points: ScenePoint[];
+  /** Samples deeper than this are left out. */
+  depthCm: number;
+  nearestCm: number | null;
+}
+
+export interface SceneSample {
+  /** xyz triples in the splat mesh's local space. */
+  positions: Float32Array;
+  /** rgb triples, 0–255. */
+  colors: Uint8Array;
+  count: number;
+}
+
+/** Frame (cm) ← world: the inverse of how ScreenWindow places the camera. */
+export function worldToFrame(frame: ScreenFrame): Matrix4 {
+  return new Matrix4()
+    .makeTranslation(0, 0, frame.neutralDistanceCm)
+    .multiply(
+      new Matrix4().makeScale(
+        1 / frame.unitsPerCm,
+        1 / frame.unitsPerCm,
+        1 / frame.unitsPerCm,
+      ),
+    )
+    .multiply(
+      new Matrix4().makeRotationFromQuaternion(
+        new Quaternion().copy(frame.orientation).invert(),
+      ),
+    )
+    .multiply(
+      new Matrix4().makeTranslation(
+        -frame.origin.x,
+        -frame.origin.y,
+        -frame.origin.z,
+      ),
+    );
+}
+
+/**
+ * Keeps the sampled splats that sit inside the viewing wedge behind the screen,
+ * so the overview shows the slice of the environment you are looking into.
+ */
+export function environmentView(
+  frame: ScreenFrame,
+  meshToWorld: Matrix4,
+  sample: SceneSample,
+  depthCm = 4000,
+  limit = 1600,
+): EnvironmentView {
+  const m = worldToFrame(frame).multiply(meshToWorld).elements;
+  const eye =
+    frame.perspective === "window"
+      ? frame.eye
+      : new Vector3(0, 0, frame.neutralDistanceCm);
+  const halfW = frame.widthCm / 2,
+    halfH = frame.heightCm / 2;
+  const points: ScenePoint[] = [];
+  let nearest = Infinity;
+  const { positions, colors } = sample;
+  for (let i = 0; i < sample.count; i++) {
+    const x0 = positions[i * 3],
+      y0 = positions[i * 3 + 1],
+      z0 = positions[i * 3 + 2];
+    const z = m[2] * x0 + m[6] * y0 + m[10] * z0 + m[14];
+    if (z > 0 || z < -depthCm) continue;
+    const x = m[0] * x0 + m[4] * y0 + m[8] * z0 + m[12];
+    const y = m[1] * x0 + m[5] * y0 + m[9] * z0 + m[13];
+    // Where the eye-to-point ray crosses the screen plane.
+    const t = eye.z / (eye.z - z);
+    const sx = eye.x + (x - eye.x) * t,
+      sy = eye.y + (y - eye.y) * t;
+    if (Math.abs(sx) > halfW || Math.abs(sy) > halfH) continue;
+    const distance = Math.hypot(x - eye.x, y - eye.y, z - eye.z);
+    if (distance < nearest) nearest = distance;
+    if (points.length < limit)
+      points.push({
+        screenX: sx,
+        screenY: sy,
+        depthCm: -z,
+        color: `rgb(${colors[i * 3]},${colors[i * 3 + 1]},${colors[i * 3 + 2]})`,
+      });
+  }
+  return {
+    points,
+    depthCm,
+    nearestCm: Number.isFinite(nearest) ? nearest : null,
+  };
+}
+
+/**
+ * Log depth for the overview: real scenes run tens of metres behind a 40 cm
+ * screen. Returns a display depth (cm) from 0 at the screen to `displayCm`.
+ */
+export function compressDepth(depthCm: number, maxCm: number, displayCm: number) {
+  const k = 50;
+  return (displayCm * Math.log1p(Math.max(0, depthCm) / k)) / Math.log1p(maxCm / k);
 }
