@@ -137,6 +137,34 @@ button[hidden],
   letter-spacing: 1.6px;
   color: #9a9ca3;
 }
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #202125;
+  color: #cfcdc8;
+  font-size: 12px;
+  font-weight: 550;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.github-link:hover {
+  background: #2e2925;
+  border-color: #5b4935;
+  color: var(--accent);
+}
+.github-mark svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
 .icon-button {
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -1530,6 +1558,12 @@ dialog > .text-link {
   }
   .header-right {
     gap: 15px;
+  }
+  .github-link {
+    padding: 0 8px;
+  }
+  .github-label {
+    display: none;
   }
   .workspace {
     display: grid;
