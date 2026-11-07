@@ -134,7 +134,11 @@ export function viewPlacement(
   rigQuaternion: Quaternion,
   scale: number,
 ): Matrix4 {
-  const look = new Matrix4().lookAt(view.position, view.target, new Vector3(0, 1, 0));
+  const look = new Matrix4().lookAt(
+    view.position,
+    view.target,
+    new Vector3(0, 1, 0),
+  );
   const sceneCamera = new Matrix4()
     .makeRotationFromQuaternion(new Quaternion().setFromRotationMatrix(look))
     .setPosition(view.position);
@@ -146,4 +150,74 @@ export function viewPlacement(
   return rigCamera
     .multiply(new Matrix4().makeScale(scale, scale, scale))
     .multiply(sceneCamera.invert());
+}
+
+const SPLAT_ROW = 2048;
+
+/**
+ * Picks the `budget` splats that matter most on screen (opacity × area) from
+ * Spark's packed layout: word 0 holds RGBA bytes, word 3 holds log-encoded
+ * scale bytes. Faint specks go first. Two linear passes, so it is fast enough
+ * to run on the fly for scenes with millions of splats. Returns indices in
+ * their original order.
+ */
+export function importantSplats(
+  packed: Uint32Array,
+  count: number,
+  budget: number,
+  lnScaleRange = 21,
+): Uint32Array {
+  const keep = Math.min(count, budget);
+  if (keep >= count) return Uint32Array.from({ length: count }, (_, i) => i);
+  const BINS = 2048,
+    LOW = -6,
+    HIGH = 45;
+  const step = ((2 / 3) * lnScaleRange) / 254;
+  const bins = new Uint16Array(count);
+  const histogram = new Uint32Array(BINS);
+  for (let i = 0; i < count; i++) {
+    const alpha = packed[i * 4] >>> 24;
+    const s = packed[i * 4 + 3];
+    const score = alpha
+      ? Math.log(alpha / 255) +
+        step * ((s & 255) + ((s >>> 8) & 255) + ((s >>> 16) & 255))
+      : LOW;
+    const bin = Math.max(
+      0,
+      Math.min(BINS - 1, Math.floor(((score - LOW) / (HIGH - LOW)) * BINS)),
+    );
+    bins[i] = bin;
+    histogram[bin]++;
+  }
+  let threshold = BINS - 1,
+    above = 0;
+  while (threshold > 0 && above + histogram[threshold] < keep)
+    above += histogram[threshold--];
+  let atThreshold = keep - above,
+    n = 0;
+  const indices = new Uint32Array(keep);
+  for (let i = 0; i < count && n < keep; i++) {
+    const bin = bins[i];
+    if (bin < threshold || (bin === threshold && atThreshold-- <= 0)) continue;
+    indices[n++] = i;
+  }
+  return indices;
+}
+
+/**
+ * Copies the chosen splats' records (`words` u32 per splat) into a new array
+ * padded to whole texture rows, as Spark's PackedSplats expects.
+ */
+export function gatherSplats(
+  source: Uint32Array,
+  words: number,
+  indices: Uint32Array,
+): Uint32Array {
+  const rows = Math.max(1, Math.ceil(indices.length / SPLAT_ROW));
+  const out = new Uint32Array(rows * SPLAT_ROW * words);
+  for (let n = 0; n < indices.length; n++) {
+    const from = indices[n] * words;
+    for (let w = 0; w < words; w++) out[n * words + w] = source[from + w];
+  }
+  return out;
 }

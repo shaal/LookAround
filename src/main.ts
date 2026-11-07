@@ -106,7 +106,7 @@ const modelSource = (key: string) =>
 let viewer: Viewer;
 try {
   viewer = new Viewer($("canvas-container"));
-if (import.meta.env.DEV) Object.assign(window, { lookaround: viewer });
+  if (import.meta.env.DEV) Object.assign(window, { lookaround: viewer });
 } catch (error) {
   $("viewer-message").textContent =
     "3D rendering is unavailable. Enable hardware acceleration or try another browser.";
@@ -147,7 +147,8 @@ let sensitivity = 1,
   invert = false;
 let inferenceMs = 0,
   simulationStart = 0,
-  nextHud = 0;
+  nextHud = 0,
+  nextOverview = 0;
 let loadGeneration = 0,
   toastTimer: ReturnType<typeof setTimeout>;
 let inputGeneration = 0;
@@ -492,6 +493,8 @@ tracker.onStatus = (message, failed) => {
 };
 tracker.onSample = (next, points, elapsed, card, cardIssue) => {
   if (inputMode !== "camera") return;
+  perf.results++;
+  perf.inferenceMs += elapsed;
   sample = next;
   inferenceMs = elapsed;
   drawFace(points);
@@ -965,7 +968,9 @@ $("upload-button").addEventListener("click", () =>
 async function loadFile(file: File) {
   const splat = isSplatName(file.name);
   if (!splat && !file.name.toLowerCase().endsWith(".glb")) {
-    toast("Choose a .glb model or a .ply, .spz, .splat, .ksplat or .sog splat.");
+    toast(
+      "Choose a .glb model or a .ply, .spz, .splat, .ksplat or .sog splat.",
+    );
     return;
   }
   if (!splat && file.size > 150 * 1024 * 1024) {
@@ -1193,7 +1198,12 @@ function animate(now: number) {
                   : inputMode === "simulation"
                     ? "Simulated"
                     : "Live";
-    spatialOverview.update(viewer.spatialGeometry, overviewState);
+    // The environment sketch scans thousands of splat samples and rebuilds
+    // its SVG; a few updates a second is plenty and keeps head tracking smooth.
+    if (now >= nextOverview) {
+      nextOverview = now + (viewer.isEnvironment ? 300 : 0);
+      spatialOverview.update(viewer.spatialGeometry, overviewState);
+    }
     $("estimate-distance").toggleAttribute(
       "disabled",
       inputMode !== "camera" || !tracker.active,
@@ -1251,6 +1261,33 @@ function animate(now: number) {
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
+
+// ?perf shows live timing numbers, for diagnosing slow machines.
+const perf = { frames: 0, worst: 0, last: 0, results: 0, inferenceMs: 0 };
+if (new URLSearchParams(location.search).has("perf")) {
+  const box = document.createElement("pre");
+  box.style.cssText =
+    "position:fixed;left:8px;bottom:8px;z-index:99;margin:0;padding:8px 10px;background:#000c;color:#9f9;font:11px/1.45 ui-monospace,monospace;border-radius:6px;pointer-events:none";
+  document.body.append(box);
+  const tick = (now: number) => {
+    if (perf.last) perf.worst = Math.max(perf.worst, now - perf.last);
+    perf.last = now;
+    perf.frames++;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  setInterval(() => {
+    const v = viewer.takePerf();
+    box.textContent = [
+      `fps ${perf.frames}  worst frame ${perf.worst.toFixed(0)} ms`,
+      `render ${v.width}×${v.height} @ ${v.ratio.toFixed(2)}x  dpr ${devicePixelRatio}`,
+      `splats ${(v.splats / 1e6).toFixed(2)}M  sorts ${v.sorts}/s  ${v.sortMs.toFixed(0)} ms each`,
+      `face ${perf.results}/s  ${(perf.results ? perf.inferenceMs / perf.results : 0).toFixed(0)} ms inference`,
+      v.gpu.slice(0, 60),
+    ].join("\n");
+    Object.assign(perf, { frames: 0, worst: 0, results: 0, inferenceMs: 0 });
+  }, 1000);
+}
 {
   const key = keyFromUrl();
   void loadModel(modelSource(key), key);

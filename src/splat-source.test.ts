@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "three";
 import {
+  gatherSplats,
+  importantSplats,
   isSplatName,
   parseSettingsView,
   splatFormat,
@@ -36,14 +38,22 @@ test("settings.json start cameras parse in both schema versions", () => {
     cameras: [{ initial: { position: [1, 2, 3], target: [1, 2, 0] } }],
   });
   assert.deepEqual(v2?.position.toArray(), [1, 2, 3]);
-  const v1 = parseSettingsView({ camera: { position: [0, 0, 5], target: [0, 0, 0] } });
+  const v1 = parseSettingsView({
+    camera: { position: [0, 0, 5], target: [0, 0, 0] },
+  });
   assert.deepEqual(v1?.target.toArray(), [0, 0, 0]);
-  assert.equal(parseSettingsView({ camera: { position: [0, 0, 0], target: [0, 0, 0] } }), null);
+  assert.equal(
+    parseSettingsView({ camera: { position: [0, 0, 0], target: [0, 0, 0] } }),
+    null,
+  );
   assert.equal(parseSettingsView(null), null);
 });
 
 test("placement puts the scene camera on the rig camera, looking the same way", () => {
-  const view = { position: new Vector3(4, 1, -2), target: new Vector3(4, 1, -12) };
+  const view = {
+    position: new Vector3(4, 1, -2),
+    target: new Vector3(4, 1, -12),
+  };
   const rigPosition = new Vector3(0, 0.1, 6.8);
   const rigQuaternion = new Quaternion(); // looking down -Z
   const matrix = viewPlacement(view, rigPosition, rigQuaternion, 10);
@@ -52,4 +62,23 @@ test("placement puts the scene camera on the rig camera, looking the same way", 
   const ahead = new Vector3(4, 1, -3).applyMatrix4(matrix);
   // One scene unit forward becomes ten rig units down -Z.
   assert.ok(ahead.distanceTo(new Vector3(0, 0.1, -3.2)) < 1e-9);
+});
+
+test("importantSplats keeps the most opaque, largest splats", () => {
+  const packed = new Uint32Array(5 * 4);
+  const splat = (i: number, alpha: number, scale: number) => {
+    packed[i * 4] = (alpha << 24) | i; // red byte tags the splat
+    packed[i * 4 + 3] = scale | (scale << 8) | (scale << 16);
+  };
+  splat(0, 10, 50); // faint and small
+  splat(1, 255, 200); // opaque and big
+  splat(2, 0, 255); // invisible
+  splat(3, 200, 150);
+  splat(4, 255, 20); // opaque speck
+  const indices = importantSplats(packed, 5, 2);
+  assert.deepEqual([...indices], [1, 3]);
+  assert.equal(importantSplats(packed, 5, 10).length, 5);
+  const kept = gatherSplats(packed, 4, indices);
+  assert.equal(kept.length, 2048 * 4);
+  assert.deepEqual([kept[0] & 255, kept[4] & 255], [1, 3]);
 });
